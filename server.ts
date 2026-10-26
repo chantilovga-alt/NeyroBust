@@ -397,7 +397,7 @@ function startAntiSleepHeartbeat(port: number) {
       }
     } catch (err: any) {
       // Silently retry next cycle
-      console.warn(`⚠️ [Anti-Sleep] Keep-Alive ping error: ${err.message || err}`);
+      console.warn(`[Anti-Sleep] Keep-Alive self-ping notice: ${err.message || err}`);
     }
   }, INTERVAL_MS);
 }
@@ -425,7 +425,7 @@ async function startServer() {
     startAntiSleepHeartbeat(PORT);
 
     // Launch 24/7 Telegram bot listener
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = BOT_TOKEN;
     const appUrl = process.env.APP_URL || 'https://ais-dev-afhybgd6fvdcktfoqqlxqd-955983393021.europe-west2.run.app';
     if (botToken) {
       startTelegramBot(botToken, appUrl, SYSTEM_INSTRUCTION, process.env.GEMINI_API_KEY);

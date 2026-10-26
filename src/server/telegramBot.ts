@@ -3,6 +3,7 @@ import { INITIAL_MEDICATIONS } from '../data/seedMedications';
 import { INITIAL_WORKOUT_EXERCISES, WORKOUT_PHILOSOPHY } from '../data/seedWorkout';
 import { INITIAL_KNOWLEDGE_NOTES } from '../data/seedKnowledgeNotes';
 import { INITIAL_ISLAMIC_REMEDIES } from '../data/seedIslamicRemedies';
+import { Medication } from '../types';
 
 interface TelegramUpdate {
   update_id: number;
@@ -120,7 +121,7 @@ export function startTelegramBot(
   botTelemetry.startTime = new Date().toISOString();
   const baseUrl = `https://api.telegram.org/bot${token}`;
 
-  console.log(`🤖 [Telegram Bot] Initializing full-featured bot for @${botTelemetry.botUsername}...`);
+  console.log(`🤖 [Telegram Bot] Initializing for @${botTelemetry.botUsername}...`);
 
   // Helper: call Telegram API
   async function apiCall(method: string, body: any) {
@@ -132,7 +133,7 @@ export function startTelegramBot(
       });
       return await res.json();
     } catch (e: any) {
-      console.error(`Telegram API error on ${method}:`, e.message || e);
+      console.warn(`Telegram API call notice on ${method}:`, e.message || e);
       return null;
     }
   }
@@ -163,7 +164,6 @@ export function startTelegramBot(
       reply_markup: replyMarkup,
       disable_web_page_preview: false,
     });
-    // If message is identical or cannot be edited, fallback to sending fresh message
     if (!res?.ok) {
       return sendMessage(chatId, text, replyMarkup);
     }
@@ -174,65 +174,56 @@ export function startTelegramBot(
   async function registerCommands() {
     await apiCall('setMyCommands', {
       commands: [
-        { command: 'start', description: '🏠 Главное меню NeuroBoost' },
-        { command: 'app', description: '📱 Открыть Telegram Mini App' },
-        { command: 'gastro', description: '🫄 1-й месяц: ЖКТ и желчеотток' },
+        { command: 'start', description: '🏠 Главное меню' },
+        { command: 'course', description: '🎯 Начать авторский курс' },
+        { command: 'auxiliary', description: '📦 Вспомогательные препараты и БАДы' },
         { command: 'workout', description: '🏋️ Система тренировок с ногами' },
-        { command: 'meds', description: '💊 База препаратов с PMID' },
-        { command: 'knowledge', description: '📚 База знаний и статьи' },
+        { command: 'knowledge', description: '📚 База знаний' },
         { command: 'islamic', description: '🕌 Исламская медицина' },
         { command: 'assistant', description: '🤖 Супер-Ассистент' },
-        { command: 'profile', description: '👤 Мой профиль и протокол' },
+        { command: 'app', description: '📱 Открыть Mini App' },
+        { command: 'profile', description: '👤 Мой профиль' },
         { command: 'dondear', description: '📩 Связаться с @DonDearOfficina' },
       ],
     });
   }
   registerCommands().catch(() => {});
 
-  // ==========================================
-  // VIEW RENDERERS & SCREEN BUILDERS
-  // ==========================================
-
-  // 1. Главное меню
+  // =========================================================================
+  // 1. ГЛАВНОЕ МЕНЮ (С ОДНОЙ ГЛАВНОЙ КНОПКОЙ «НАЧАТЬ АВТОРСКИЙ КУРС»)
+  // =========================================================================
   function getMainMenuView(userId: number) {
     const session = getUserSession(userId);
-    const phaseNames = {
-      1: '1-й месяц (ЖКТ & Желчеотток)',
-      2: '2-й месяц (Нейробуст старт)',
-      3: '3-й месяц (Продолжение нейробуста & Микронутриенты)',
-      4: 'Поддержка (Постоянный стек)',
-    };
 
     const text =
       `👋 <b>Добро пожаловать в систему NeuroBoost!</b>\n\n` +
-      `Официальный бот и Mini App дипломированного провизора-химика <a href="https://t.me/DonDearOfficina">@DonDearOfficina</a>.\n\n` +
-      `⚙️ <b>Главная концепция (Cause-First):</b>\n` +
-      `1️⃣ <b>ЖКТ и желчеотток:</b> основа основ, эмульгация жиров, ликвидация СИБР и санация кишечника.\n` +
-      `2️⃣ <b>Гормональный стимул через ноги:</b> старт с икроножных мышц и 2 подхода приседаний в отказ (снятие застоев малого таза и простаты).\n` +
-      `3️⃣ <b>Нейробуст:</b> длительный цикл ноотропов и энергетиков (Глиатилин, Креатин, Цитруллин от 6–12 мес, Фенотропил 2 мес).\n\n` +
-      `👤 <b>Ваш статус:</b> ${phaseNames[session.currentPhase]}\n` +
-      `📊 <b>Авторский протокол:</b> ${session.onAuthorProtocol ? '✅ ВКЛЮЧЕН' : '❌ ВЫКЛЮЧЕН'}\n\n` +
-      `<i>Личный опыт, разбор открытых данных.</i>\n\n` +
-      `Выберите раздел ниже или откройте интерактивный Mini App:`;
+      `Официальный бот и программа дипломированного провизора-химика <a href="https://t.me/DonDearOfficina">@DonDearOfficina</a>.\n\n` +
+      `<b>⚙️ Архитектура системы:</b>\n` +
+      `Весь авторский курс объединен в единую последовательную программу, которая начинается с кнопки <b>«Начать авторский курс»</b> ниже.\n\n` +
+      `• <b>1-й этап:</b> Настройка ЖКТ и желчеоттока (1-й месяц — фундамент всасывания).\n` +
+      `• <b>2-й этап:</b> Подключение Нейробуста (2-й месяц, базовый длительный прием от 6 месяцев).\n` +
+      `• <b>3-й этап:</b> Двухмесячный этап с Фенотропилом (3-й и 4-й месяцы).\n\n` +
+      `Все остальные добавки и средства вынесены в отдельный структурированный каталог <b>«Вспомогательные препараты и БАДы»</b>.\n\n` +
+      `<i>Личный опыт, разбор открытых данных.</i>`;
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: '💊 Запустить NeuroBoost Mini App', web_app: { url: appUrl } }],
+        [{ text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' }],
+        [{ text: '📦 Вспомогательные препараты и БАДы', callback_data: 'nav_auxiliary_root' }],
         [
-          { text: '🫄 1. Настройка ЖКТ', callback_data: 'nav_gastro' },
-          { text: '🏋️ 2. Тренировки', callback_data: 'nav_workout' },
+          { text: '🏋️ Система тренировок', callback_data: 'nav_workout' },
+          { text: '📚 База знаний', callback_data: 'nav_knowledge' },
         ],
         [
-          { text: '💊 3. База препаратов', callback_data: 'nav_meds' },
-          { text: '📚 4. База знаний', callback_data: 'nav_knowledge' },
+          { text: '🕌 Исламская медицина', callback_data: 'nav_islamic' },
+          { text: '🤖 Супер-Ассистент', callback_data: 'nav_assistant' },
         ],
         [
-          { text: '🕌 5. Исламская медицина', callback_data: 'nav_islamic' },
-          { text: '🤖 6. Супер-Ассистент', callback_data: 'nav_assistant' },
+          { text: '📱 Открыть NeuroBoost Mini App', web_app: { url: appUrl } },
         ],
         [
-          { text: '👤 7. Мой профиль', callback_data: 'nav_profile' },
-          { text: '📩 8. Автор @DonDearOfficina', callback_data: 'nav_dondear' },
+          { text: '👤 Мой профиль', callback_data: 'nav_profile' },
+          { text: '📩 Автор @DonDearOfficina', callback_data: 'nav_dondear' },
         ],
       ],
     };
@@ -240,51 +231,291 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 2. Раздел: 1-й месяц ЖКТ
-  function getGastroView(userId: number) {
-    const session = getUserSession(userId);
-    const checks = session.gastroDayChecks;
+  // =========================================================================
+  // 2. РАЗДЕЛ «НАЧАТЬ АВТОРСКИЙ КУРС» (ЕДИНАЯ ПОСЛЕДОВАТЕЛЬНАЯ ПРОГРАММА)
+  // =========================================================================
+  function getCourseOverviewView() {
+    const text =
+      `<b>🎯 АВТОРСКИЙ КУРС @DonDearOfficina</b>\n` +
+      `<i>Единая последовательная программа оптимизации нейросистемы</i>\n\n` +
+      `Курс строится строго по каскадному принципу Cause-First:\n\n` +
+      `<b>1️⃣ Первый месяц — «Настройка ЖКТ и желчеоттока»</b>\n` +
+      `• <i>Компоненты:</i> Хофитол, Полисорб (минимум 3 недели), Энтерол.\n` +
+      `• <i>Альтернатива при камнях:</i> Урсосан (УДХК) — строго по УЗИ, не универсально.\n` +
+      `• <i>Цель:</i> Запуск желчеоттока, эмульгация липидов, ликвидация эндотоксикоза и укрепление кишечного барьера.\n\n` +
+      `<b>2️⃣ Второй месяц — «Подключение Нейробуста и основных компонентов»</b>\n` +
+      `• <i>Компоненты:</i> Нейробуст, L-Цитруллин, Креатин, Глиатилин (холина альфосцерат).\n` +
+      `• <b>ВАЖНО:</b> Цитруллин, Креатин и Глиатилин принимаются <b>минимум 6 месяцев</b> (от 6 до 12 месяцев)! Второй месяц обозначает точку их подключения, а не окончания!\n` +
+      `• <i>Цель:</i> Насыщение пула ацетилхолина, энергетическая буферизация АТФ и эндотелиальный оксид азота.\n\n` +
+      `<b>3️⃣ Третий и четвёртый месяцы — «Двухмесячный этап с Фенотропилом»</b>\n` +
+      `• <i>Компоненты:</i> Фенотропил (Фонтурацетам).\n` +
+      `• <i>Продолжительность этапа:</i> <b>Ровно 2 месяца</b> (3-й месяц — начало, 4-й месяц — продолжение).\n` +
+      `• <i>Связка:</i> Принимается СТРОГО на фоне продолжающегося приема компонентов 2-го месяца (Глиатилин, Креатин, Цитруллин)!\n\n` +
+      `<i>Выберите этап ниже для подробного изучения регламента, инструкций и личного опыта автора:</i>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '🫄 Этап 1: Настройка ЖКТ и желчеоттока (1-й мес)', callback_data: 'course_stage_1' }],
+        [{ text: '🧠 Этап 2: Подключение Нейробуста (2-й мес, 6+ мес)', callback_data: 'course_stage_2' }],
+        [{ text: '⚡ Этап 3: Этап с Фенотропилом (3-й и 4-й мес)', callback_data: 'course_stage_3' }],
+        [
+          { text: '🔄 Схема-таймлайн курса', callback_data: 'course_timeline' },
+          { text: '📦 Вспомогательные БАДы', callback_data: 'nav_auxiliary_root' },
+        ],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // 2.1 Этап 1: Настройка ЖКТ и желчеоттока
+  function getStage1View() {
+    const text =
+      `<b>🫄 ЭТАП 1: НАСТРОЙКА ЖКТ И ЖЕЛЧЕОТТОКА (1-Й МЕСЯЦ)</b>\n\n` +
+      `<b>Основная концепция этапа:</b>\n` +
+      `Без работающего ЖКТ все расчеты по ноотропам и микронутриентам бессмысленны. Если нарушен отток желчи, жирорастворимые молекулы транзитируются, а бактериальный эндотоксин (ЛПС) вызывает системное нейровоспаление.\n\n` +
+      `<b>📋 Базовый авторский стек:</b>\n\n` +
+      `1. <b>ХОФИТОЛ</b> (экстракт листьев артишока)\n` +
+      `• <i>По инструкции:</i> 2–3 таб. 3 раза в сутки перед едой, курс 2–3 недели.\n` +
+      `• <i>Личный опыт автора:</i> 2 таблетки 3 раза в день строго за 20 мин до еды курсом 20–30 дней.\n` +
+      `• <i>Ограничения:</i> Обязательно исключить камни по УЗИ ОБП (риск обтурации протока).\n\n` +
+      `2. <b>ПОЛИСОРБ МП</b> (коллоидный диоксид кремния)\n` +
+      `• <i>По инструкции:</i> водная суспензия (1–2 ст. ложки) за 1–1.5 часа до/после еды и лекарств.\n` +
+      `• <i>Личный опыт автора:</i> <b>применяется в авторской концепции минимум три недели</b> для глубокого снижения токсической нагрузки.\n` +
+      `• <i>Ограничения:</i> Обязательно разносить по времени с Хофитолом и Энтеролом на 1.5–2 часа!\n\n` +
+      `3. <b>ЭНТЕРОЛ</b> (Saccharomyces boulardii)\n` +
+      `• <i>По инструкции:</i> 1–2 капс. 2 раза в сутки за 1 час до еды, курс 7–30 дней.\n` +
+      `• <i>Личный опыт автора:</i> 250 мг 2 раза в день за 1 час до еды (14–30 дней).\n` +
+      `• <i>Назначение:</i> Укрепление плотных контактов энтероцитов (tight junctions).\n\n` +
+      `<b>⚠️ Предусмотренная автором альтернатива при камнях:</b>\n` +
+      `• <b>Урсосан (УДХК):</b> предусмотрен автором как <i>альтернатива Хофитолу при наличии конкрементов в желчном пузыре</i>. <b>Не является универсальной рекомендацией для всех пациентов</b>, требует контроля УЗИ ОБП и врача!\n\n` +
+      `<i>Из базового стека автором исключены Ребагит, Креон 10 000 и Омез ДСР (они вынесены во вспомогательный раздел).</i>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '🌿 Карточка Хофитола', callback_data: 'med_view_1' },
+          { text: '🌪️ Карточка Полисорба', callback_data: 'med_view_4' },
+        ],
+        [
+          { text: '🛡️ Карточка Энтерола', callback_data: 'med_view_2' },
+          { text: '⚠️ Урсосан (альтернатива)', callback_data: 'med_view_10' },
+        ],
+        [
+          { text: '➡️ Перейти ко 2-му месяцу', callback_data: 'course_stage_2' },
+        ],
+        [
+          { text: '🔙 К обзору курса', callback_data: 'nav_course_root' },
+          { text: '🏠 Главное меню', callback_data: 'menu_main' },
+        ],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // 2.2 Этап 2: Подключение Нейробуста и основных компонентов
+  function getStage2View() {
+    const text =
+      `<b>🧠 ЭТАП 2: ПОДКЛЮЧЕНИЕ НЕЙРОБУСТА И ОСНОВНЫХ КОМПОНЕНТОВ (2-Й МЕСЯЦ)</b>\n\n` +
+      `<b>Важнейший принцип авторского курса:</b>\n` +
+      `Второй месяц обозначает <b>момент подключения</b> базовых метаболических молекул, а не окончание их приёма! Согласно авторскому замыслу, Цитруллин, Креатин и Глиатилин принимаются <b>МИНИМУМ ШЕСТЬ МЕСЯЦЕВ</b> (от 6 до 12 месяцев) непрерывно.\n\n` +
+      `<b>📋 Компоненты этапа:</b>\n\n` +
+      `1. <b>ГЛИАТИЛИН</b> (холина альфосцерат)\n` +
+      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (длительный базовый прием).\n` +
+      `• <i>По инструкции:</i> 400 мг 2–3 раза в сутки до еды.\n` +
+      `• <i>Личный опыт автора:</i> 400 мг 2 раза в день за 30 мин до еды в первой половине дня.\n` +
+      `• <i>Зачем в курсе:</i> Субстрат ацетилхолина. Принимается во 2-й месяц СТРОГО ДО стимуляторов, чтобы заблаговременно насытить синапсы.\n\n` +
+      `2. <b>КРЕАТИН МОНОГИДРАТ</b>\n` +
+      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (постоянный энергетический буфер).\n` +
+      `• <i>По инструкции:</i> 3–5 г в сутки с водой или соком.\n` +
+      `• <i>Личный опыт автора:</i> 5 г каждое утро натощак.\n` +
+      `• <i>Зачем в курсе:</i> Ресинтез АТФ для мозга и поддержка отказных приседаний.\n\n` +
+      `3. <b>L-ЦИТРУЛЛИН</b>\n` +
+      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (длительная сосудистая база).\n` +
+      `• <i>По инструкции:</i> 3–6 г в сутки.\n` +
+      `• <i>Личный опыт автора:</i> 3–5 г утром натощак совместно с креатином.\n` +
+      `• <i>Зачем в курсе:</i> Синтез оксида азота (NO), снятие венозного стаза малого таза.\n\n` +
+      `4. <b>НЕЙРОБУСТ (авторский стек)</b>\n` +
+      `• Синергия субстрата (Глиатилин) + энергии (Креатин) + микроциркуляции (Цитруллин).\n\n` +
+      `<i>Этот стек продолжается на 3-м и 4-м месяцах и далее!</i>`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '🧠 Глиатилин (6+ мес)', callback_data: 'med_view_6' },
+          { text: '⚡ Креатин (6+ мес)', callback_data: 'med_view_7' },
+        ],
+        [
+          { text: '🩸 L-Цитруллин (6+ мес)', callback_data: 'med_view_8' },
+          { text: '🚀 Стек Нейробуст', callback_data: 'med_view_9' },
+        ],
+        [
+          { text: '⬅️ Этап 1 (ЖКТ)', callback_data: 'course_stage_1' },
+          { text: '➡️ Этап 3 (Фенотропил)', callback_data: 'course_stage_3' },
+        ],
+        [
+          { text: '🔙 К обзору курса', callback_data: 'nav_course_root' },
+          { text: '🏠 Главное меню', callback_data: 'menu_main' },
+        ],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // 2.3 Этап 3: Третий и четвёртый месяцы — Двухмесячный этап с Фенотропилом
+  function getStage3View() {
+    const text =
+      `<b>⚡ ЭТАП 3: ДВУХМЕСЯЧНЫЙ ЭТАП С ФЕНОТРОПИЛОМ (3-Й И 4-Й МЕСЯЦЫ)</b>\n\n` +
+      `На третьем месяце авторского курса подключается Фенотропил.\n\n` +
+      `<b>Регламент этапа:</b>\n` +
+      `• <b>Продолжительность: ровно два месяца</b> (3-й месяц — начало, 4-й месяц — продолжение).\n` +
+      `• Для 4-го месяца не создается отдельный курс — он является прямым продолжением начатого этапа.\n\n` +
+      `<b>📋 ФЕНОТРОПИЛ (Фонтурацетам):</b>\n` +
+      `• <i>По инструкции производителя:</i> разовая доза 100–250 мг, суточная 200–300 мг утром после еды. Длительность курса лечения от 30 дней до 2 месяцев. Не принимать позднее 15:00.\n` +
+      `• <i>Личный опыт автора:</i> 100 мг утром натощак курсом ровно 2 месяца (3-й и 4-й месяцы курса).\n` +
+      `• <b>Ключевое условие безопасности:</b> Фенотропил принимается СТРОГО ПОСЛЕ предшествующего насыщения пула ацетилхолина Глиатилином на 2-м месяце. Стимуляция без холина ведет к истощению синапса!\n\n` +
+      `<b>🔄 Параллельная поддержка:</b>\n` +
+      `На протяжении 3-го и 4-го месяцев <b>продолжается прием компонентов 2-го месяца</b> (Глиатилин, Креатин, Цитруллин), которые рассчитаны минимум на 6 месяцев!\n\n` +
+      `<b>📌 Последующие варианты (вне основного курса):</b>\n` +
+      `В концепции автора после завершения этапа с Фенотропилом описана последовательность: сначала Пирацетам, затем <b>Ноопепт</b> (ранее ошибочно названный «Апепт»), а далее возможность рассмотрения других ноотропов. Они не назначаются автоматически и вынесены в раздел вспомогательных средств.`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '💊 Карточка Фенотропила (2 мес)', callback_data: 'med_view_5' }],
+        [
+          { text: '⬅️ Этап 2 (Нейробуст)', callback_data: 'course_stage_2' },
+          { text: '🔄 Схема-таймлайн', callback_data: 'course_timeline' },
+        ],
+        [
+          { text: '📦 Вспомогательные препараты', callback_data: 'nav_auxiliary_root' },
+          { text: '🔙 К обзору курса', callback_data: 'nav_course_root' },
+        ],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // 2.4 Общая таймлайн-схема курса
+  function getCourseTimelineView() {
+    const text =
+      `<b>🔄 ОБЩАЯ СХЕМА-ТАЙМЛАЙН АВТОРСКОГО КУРСА</b>\n\n` +
+      `┌─ <b>1-Й МЕСЯЦ: НАСТРОЙКА ЖКТ</b>\n` +
+      `│  • Хофитол (2 таб. × 3 р/д за 20 мин)\n` +
+      `│  • Полисорб (минимум 3 недели, отдельно на 1.5–2 ч)\n` +
+      `│  • Энтерол (250 мг × 2 р/д за 1 ч)\n` +
+      `│  <i>(Урсосан — только альтернатива при камнях по УЗИ)</i>\n` +
+      `└────────────────────────────────────────\n\n` +
+      `┌─ <b>2-Й МЕСЯЦ: СТАРТ НЕЙРОБУСТА (ДЛИТЕЛЬНЫЙ СТЕК 6+ МЕС)</b>\n` +
+      `│  • Глиатилин (400 мг × 2 р/д) ──➔ <b>длится 6–12 месяцев</b>\n` +
+      `│  • Креатин (5 г утром) ─────────➔ <b>длится 6–12 месяцев</b>\n` +
+      `│  • L-Цитруллин (3–5 г утром) ───➔ <b>длится 6–12 месяцев</b>\n` +
+      `└────────────────────────────────────────\n\n` +
+      `┌─ <b>3-Й И 4-Й МЕСЯЦЫ: ЭТАП С ФЕНОТРОПИЛОМ (РОВНО 2 МЕС)</b>\n` +
+      `│  • Фенотропил (100 мг утром) ──➔ <b>ровно 2 месяца</b>\n` +
+      `│  • + параллельно продолжаются Глиатилин, Креатин, Цитруллин!\n` +
+      `└────────────────────────────────────────\n\n` +
+      `┌─ <b>ПОСЛЕ 4-ГО МЕСЯЦА:</b>\n` +
+      `│  • Глиатилин, Креатин, Цитруллин продолжаются до 6–12 мес.\n` +
+      `│  • Рассматриваются варианты: Пирацетам, далее Ноопепт (каталог вспомогательных средств).\n` +
+      `└────────────────────────────────────────`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '🫄 К 1-му этапу (ЖКТ)', callback_data: 'course_stage_1' }],
+        [{ text: '🧠 Ко 2-му этапу (Нейробуст)', callback_data: 'course_stage_2' }],
+        [{ text: '⚡ К 3-му этапу (Фенотропил)', callback_data: 'course_stage_3' }],
+        [{ text: '🔙 К обзору курса', callback_data: 'nav_course_root' }],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // =========================================================================
+  // 3. РАЗДЕЛ «ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ И БАДЫ» (ОТДЕЛЬНЫЙ КАТАЛОГ)
+  // =========================================================================
+  function getAuxiliaryCatalogView() {
+    const auxiliaryMeds = INITIAL_MEDICATIONS.filter((m) => !m.is_main_course);
 
     const text =
-      `<b>🫄 1-й МЕСЯЦ: НАСТРОЙКА ЖКТ И ЖЕЛЧЕОТТОКА</b>\n\n` +
-      `Основа основ всей концепции @DonDearOfficina: без работающего ЖКТ все расчеты по ноотропам и витаминам — чистая теория. Если нет желчеоттока, гидрофобные витамины (D3, K2, Омега-3) транзитируются, а кишечник страдает от бактериального обсеменения.\n\n` +
-      `<b>📋 Базовый стек 1-го месяца:</b>\n` +
-      `• <b>Омез ДСР</b> (омепразол + домперидон) — 1 капс. утром натощак (10–14 дней) — нормализация моторики ДПК и снятие кислотной агрессии.\n` +
-      `• <b>Урсосан (УДХК)</b> — 250–500 мг на ночь во время еды — устранение билиарного сладжа, вытеснение токсичных желчных кислот.\n` +
-      `• <b>Хофитол</b> (экстракт артишока) — 2 таб. за 20 мин до еды 3 р/день — стимуляция холереза и холекинеза.\n` +
-      `• <b>Креон 10 000</b> — 1 капс. с основными приемами пищи — ферментная разгрузка поджелудочной железы.\n` +
-      `• <b>Ребагит</b> (ребамипид) — 1 таб. 3 р/день (4 недели) — синтез эндогенных простагландинов и защита плотных контактов слизистой.\n\n` +
-      `<b>🗓️ Интерактивный чек-лист приема на сегодня:</b>\n` +
-      `${checks['gastro_am'] ? '✅' : '⚪'} Утро: Омез ДСР + Хофитол за 20 мин\n` +
-      `${checks['gastro_noon'] ? '✅' : '⚪'} Обед: Хофитол + Креон 10 000\n` +
-      `${checks['gastro_pm'] ? '✅' : '⚪'} Вечер / Ночь: Урсосан + Хофитол\n\n` +
-      `<i>Личный опыт, разбор открытых данных. Перед приемом желчегонных обязательно исключить конкременты по УЗИ ОБП.</i>`;
+      `<b>📦 ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ И БАДЫ</b>\n\n` +
+      `Структурированный каталог дополнительных препаратов и добавок, которые имеются в базе, но <b>не входят в основной 4-месячный курс</b>.\n\n` +
+      `Они не назначаются всем автоматически, а рассматриваются индивидуально при наличии специфических показаний, по анализам крови или на последующих этапах.\n\n` +
+      `<i>Нажмите на препарат для открытия подробной карточки из 7 подразделов (инструкция производителя, личный опыт автора, ограничения и связь с курсом):</i>`;
+
+    const buttons = auxiliaryMeds.map((med) => [
+      {
+        text: `💊 ${med.name}`,
+        callback_data: `med_view_${med.id}`,
+      },
+    ]);
+
+    const keyboard = {
+      inline_keyboard: [
+        ...buttons,
+        [{ text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' }],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
+      ],
+    };
+
+    return { text, keyboard };
+  }
+
+  // 3.1 Детальная карточка препарата (со всеми 7 подразделами)
+  function getMedDetailView(medId: number) {
+    const med = INITIAL_MEDICATIONS.find((m) => m.id === medId);
+    if (!med) {
+      return {
+        text: '⚠️ Препарат не найден в базе данных.',
+        keyboard: { inline_keyboard: [[{ text: '🔙 К списку', callback_data: 'nav_auxiliary_root' }]] },
+      };
+    }
+
+    const legalLabel =
+      med.legal_category_rf === 'medicine'
+        ? 'Лекарственный препарат (ГРЛС РФ)'
+        : med.legal_category_rf === 'vitamin_mineral'
+        ? 'Витаминно-минеральный комплекс'
+        : 'Биологически активная добавка (БАД)';
+
+    const isCourse = med.is_main_course ? '🎯 Основной авторский курс' : '📦 Вспомогательный препарат / БАД';
+
+    const text =
+      `<b>1. Название:</b> <b>${med.name}</b>\n` +
+      `<i>(Активное вещество: ${med.active_ingredient || 'Уточняется'})\n` +
+      `Категория: ${legalLabel} | Статус: ${isCourse}</i>\n\n` +
+      `<b>2. Для чего используется:</b>\n` +
+      `${med.purpose || med.notes || 'Информация уточняется'}\n\n` +
+      `<b>3. Когда рассматривается применение:</b>\n` +
+      `${med.when_considered || med.why_in_stack || 'По индивидуальным показаниям'}\n\n` +
+      `<b>4. Как принимать по инструкции (производитель):</b>\n` +
+      `${med.instruction_usage || med.dose || 'Строго по официальной инструкции производителя'}\n\n` +
+      `<b>5. Личный опыт автора:</b>\n` +
+      `${med.personal_experience || 'Наблюдение автора, не заменяет консультацию врача'}\n\n` +
+      `<b>6. Ограничения и предостережения:</b>\n` +
+      `${med.precautions || 'Противопоказания по инструкции производителя'}\n\n` +
+      `<b>7. Связь с основным курсом:</b>\n` +
+      `${med.relation_to_main_course || 'Дополнительный компонент вне основного курса'}\n\n` +
+      (med.evidence_refs?.length ? `<b>📚 Источники / PubMed:</b> ${med.evidence_refs.join(', ')}\n\n` : '') +
+      `<i>Личный опыт автора не является доказательством для других людей. Это не медицинская рекомендация. Проконсультируйтесь со специалистом.</i>`;
+
+    const backCallback = med.is_main_course ? 'nav_course_root' : 'nav_auxiliary_root';
+    const backLabel = med.is_main_course ? '🔙 К авторскому курсу' : '🔙 Ко вспомогательным БАДам';
 
     const keyboard = {
       inline_keyboard: [
         [
-          {
-            text: checks['gastro_am'] ? '✅ Утро принято' : '⚪ Принять УТРО',
-            callback_data: 'toggle_gastro_am',
-          },
-          {
-            text: checks['gastro_noon'] ? '✅ Обед принят' : '⚪ Принять ОБЕД',
-            callback_data: 'toggle_gastro_noon',
-          },
+          { text: `💬 Спросить ассистента про ${med.name}`, callback_data: `ask_about_med_${med.id}` },
         ],
         [
-          {
-            text: checks['gastro_pm'] ? '✅ Вечер принят' : '⚪ Принять ВЕЧЕР',
-            callback_data: 'toggle_gastro_pm',
-          },
-        ],
-        [
-          { text: '💊 Описание препаратов ЖКТ с PMID', callback_data: 'meds_cat_1' },
-          { text: '⚠️ Правила и УЗИ ОБП', callback_data: 'gastro_rules' },
-        ],
-        [
-          { text: '📱 Открыть трекер в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
+          { text: backLabel, callback_data: backCallback },
+          { text: '🏠 Главное меню', callback_data: 'menu_main' },
         ],
       ],
     };
@@ -292,7 +523,9 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 3. Раздел: Тренировки с приоритетом ног
+  // =========================================================================
+  // 4. ТРЕНИРОВКИ, БАЗА ЗНАНИЙ, ИСЛАМСКАЯ МЕДИЦИНА, АССИСТЕНТ, ПРОФИЛЬ
+  // =========================================================================
   function getWorkoutView(userId: number) {
     const session = getUserSession(userId);
     const done = session.workoutCompleted;
@@ -301,13 +534,13 @@ export function startTelegramBot(
       `<b>🏋️ СИСТЕМА КОМПЛЕКСНЫХ ТРЕНИРОВОК С ПРИОРИТЕТОМ НОГ</b>\n` +
       `<b>Автор:</b> @DonDearOfficina | <b>Длительность:</b> 45–60 минут\n\n` +
       `<b>Ключевая концепция:</b>\n` +
-      `Главная причина упадка сил, застоя в малом тазу и снижения тестостерона — венозный застой. Тренировка запускает мышечно-венозную помпу голени и активирует кровоток простаты.\n\n` +
+      `Главная причина упадка сил и застоя в малом тазу — венозный стаз. Тренировка запускает мышечно-венозную помпу голени и кровоток простаты.\n\n` +
       `<b>Правила методики:</b>\n` +
       `1️⃣ <b>СТАРТ:</b> Каждое занятие СТРОГО начинается с <b>икроножных мышц</b> (периферический насос).\n` +
-      `2️⃣ <b>ПРИСЕДАНИЯ:</b> Сразу после икр — <b>2 подхода приседаний в отказ</b> (своим весом или с весом). Мощнейший выброс СТГ и тестостерона.\n` +
+      `2️⃣ <b>ПРИСЕДАНИЯ:</b> Сразу после икр — <b>2 подхода приседаний в отказ</b>. Мощнейший выброс СТГ и тестостерона.\n` +
       `3️⃣ <b>КОМПЛЕКС ВСЕГО ТЕЛА:</b> 2 грудь + 2 спина + 2 плечи + 2 ноги + ягодичные отдельно.\n` +
-      `4️⃣ <b>СВОБОДНОЕ ЧЕРЕДОВАНИЕ:</b> переходите между тренажерами без ожидания, давая мышцам отдыхать.\n` +
-      `5️⃣ <b>ОТДЫХ:</b> 1.5–2 минуты между тяжелыми подходами.\n\n` +
+      `4️⃣ <b>СВОБОДНОЕ ЧЕРЕДОВАНИЕ:</b> переходите между тренажерами без ожидания, давая мышцам восстановиться.\n` +
+      `5️⃣ <b>ОТДЫХ:</b> 1.5–2 минуты между тяжелыми сетами.\n\n` +
       `<b>Чек-лист тренировки сегодня:</b>\n` +
       `${done['calves'] ? '✅' : '⚪'} 1. Икроножные мышцы (2 подхода, 15–25 повт.)\n` +
       `${done['squats'] ? '✅' : '⚪'} 2. Приседания в отказ (2 подхода)\n` +
@@ -331,126 +564,7 @@ export function startTelegramBot(
           { text: '📋 Список упражнений', callback_data: 'workout_list' },
         ],
         [
-          { text: '📱 Тренировки в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
-        ],
-      ],
-    };
-
-    return { text, keyboard };
-  }
-
-  // 4. Раздел: База препаратов
-  function getMedsCatalogView(filterCategory: 'all' | '1' | '2' | '3' | '4' | 'medicine' | 'supplement') {
-    let filtered = INITIAL_MEDICATIONS;
-    let title = 'Все препараты';
-
-    if (filterCategory === '1') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.month_phase === 1);
-      title = '1-й месяц: ЖКТ и желчеотток';
-    } else if (filterCategory === '2') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.month_phase === 2);
-      title = '2-й месяц: Нейробуст старт';
-    } else if (filterCategory === '3') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.month_phase === 3);
-      title = '3-й месяц: Продолжение нейробуста & Микронутриенты';
-    } else if (filterCategory === '4') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.month_phase === 4);
-      title = 'Раздел «Поддержка» (Стек за год)';
-    } else if (filterCategory === 'medicine') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.legal_category_rf === 'medicine');
-      title = 'Лекарственные препараты (ГРЛС РФ)';
-    } else if (filterCategory === 'supplement') {
-      filtered = INITIAL_MEDICATIONS.filter((m) => m.legal_category_rf === 'supplement' || m.legal_category_rf === 'vitamin_mineral');
-      title = 'БАД и витамины (по законодательству РФ)';
-    }
-
-    const text =
-      `<b>💊 МОЯ БАЗА ПРЕПАРАТОВ: ${title.toUpperCase()}</b>\n\n` +
-      `Каждое средство классифицировано по законодательству РФ, имеет научное обоснование, механизм действия и ссылки на метаанализы/РКИ (PubMed/PMID).\n\n` +
-      `<i>Нажмите на любой препарат из списка ниже, чтобы открыть его доказательную карточку:</i>`;
-
-    const medButtons: any[] = [];
-    filtered.slice(0, 10).forEach((med) => {
-      const icon = med.category === 'gastro' ? '🫄' : med.category === 'neuroboost' ? '🧠' : '🛡️';
-      medButtons.push([
-        {
-          text: `${icon} ${med.name} (${med.legal_category_rf === 'medicine' ? 'ЛС' : 'БАД'})`,
-          callback_data: `med_view_${med.id}`,
-        },
-      ]);
-    });
-
-    const filterRow1 = [
-      { text: filterCategory === '1' ? '• 1-й мес (ЖКТ) •' : '1-й мес', callback_data: 'meds_cat_1' },
-      { text: filterCategory === '2' ? '• 2-й мес (Нейро) •' : '2-й мес', callback_data: 'meds_cat_2' },
-      { text: filterCategory === '3' ? '• 3-й мес •' : '3-й мес', callback_data: 'meds_cat_3' },
-      { text: filterCategory === '4' ? '• Поддержка •' : 'Поддержка', callback_data: 'meds_cat_4' },
-    ];
-
-    const filterRow2 = [
-      { text: filterCategory === 'medicine' ? '• ЛС РФ •' : 'ЛС РФ', callback_data: 'meds_cat_medicine' },
-      { text: filterCategory === 'supplement' ? '• БАД РФ •' : 'БАД РФ', callback_data: 'meds_cat_supplement' },
-      { text: filterCategory === 'all' ? '• Все •' : 'Показать все', callback_data: 'meds_cat_all' },
-    ];
-
-    const keyboard = {
-      inline_keyboard: [
-        filterRow1,
-        filterRow2,
-        ...medButtons,
-        [
-          { text: '📱 Открыть фильтры в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
-        ],
-      ],
-    };
-
-    return { text, keyboard };
-  }
-
-  // 4.1 Детальная карточка препарата
-  function getMedDetailView(medId: number) {
-    const med = INITIAL_MEDICATIONS.find((m) => m.id === medId);
-    if (!med) {
-      return {
-        text: '⚠️ Препарат не найден в базе данных.',
-        keyboard: { inline_keyboard: [[{ text: '🔙 К списку препаратов', callback_data: 'nav_meds' }]] },
-      };
-    }
-
-    const legalLabel =
-      med.legal_category_rf === 'medicine'
-        ? 'Лекарственное средство (ЛС по ГРЛС РФ)'
-        : med.legal_category_rf === 'vitamin_mineral'
-        ? 'Витаминно-минеральный комплекс'
-        : 'Биологически активная добавка (БАД)';
-
-    const text =
-      `<b>💊 ${med.name.toUpperCase()}</b>\n` +
-      `<b>Действующее вещество:</b> ${med.active_ingredient}\n` +
-      `<b>Статус в РФ:</b> ${legalLabel}\n` +
-      `<b>Этап:</b> ${med.month_phase ? `${med.month_phase}-й месяц` : 'Курсовой прием'}\n` +
-      `<b>Дозировка:</b> ${med.dose || 'По инструкции'}\n` +
-      `<b>Схема приема:</b> ${med.schedule || 'По назначению врача'}\n` +
-      (med.duration_course ? `<b>Длительность:</b> ${med.duration_course}\n` : '') +
-      `\n<b>🎯 Зачем в авторском стеке:</b>\n${med.why_in_stack || med.notes || 'Поддержка метаболизма'}\n` +
-      (med.meta_analysis_summary ? `\n<b>🔬 Мета-анализы и РКИ:</b>\n${med.meta_analysis_summary}\n` : '') +
-      (med.evidence_refs?.length
-        ? `\n<b>📚 Источники / PubMed:</b>\n${med.evidence_refs.join(', ')}\n`
-        : '') +
-      `\n<i>Личный опыт, разбор открытых данных. Не является назначением. Проконсультируйтесь с врачом.</i>`;
-
-    const keyboard = {
-      inline_keyboard: [
-        [
-          {
-            text: `💬 Спросить ассистента про ${med.name}`,
-            callback_data: `ask_about_med_${med.id}`,
-          },
-        ],
-        [
-          { text: '🔙 К списку препаратов', callback_data: 'nav_meds' },
+          { text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' },
           { text: '🏠 Главное меню', callback_data: 'menu_main' },
         ],
       ],
@@ -459,7 +573,6 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 5. Раздел: База знаний
   function getKnowledgeListView() {
     const text =
       `<b>📚 БАЗА ЗНАНИЙ @DonDearOfficina</b>\n\n` +
@@ -468,7 +581,7 @@ export function startTelegramBot(
 
     const buttons = INITIAL_KNOWLEDGE_NOTES.map((note) => [
       {
-        text: `📄 [${note.topic}] ${note.title.slice(0, 38)}...`,
+        text: `📄 [${note.topic}] ${note.title.slice(0, 36)}...`,
         callback_data: `kb_art_${note.id}`,
       },
     ]);
@@ -477,19 +590,16 @@ export function startTelegramBot(
       inline_keyboard: [
         ...buttons,
         [
-          { text: '🕌 Исламская медицина (тибб-и-набави)', callback_data: 'nav_islamic' },
+          { text: '🕌 Исламская медицина', callback_data: 'nav_islamic' },
+          { text: '🎯 Авторский курс', callback_data: 'nav_course_root' },
         ],
-        [
-          { text: '📱 Открыть базу в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
-        ],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
       ],
     };
 
     return { text, keyboard };
   }
 
-  // 5.1 Просмотр статьи
   function getKnowledgeArticleView(articleId: number) {
     const article = INITIAL_KNOWLEDGE_NOTES.find((a) => a.id === articleId);
     if (!article) {
@@ -520,7 +630,6 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 6. Раздел: Исламская медицина (тибб-и-набави)
   function getIslamicListView() {
     const text =
       `<b>🕌 ИСЛАМСКАЯ МЕДИЦИНА (ТИББ-И-НАБАВИ)</b>\n\n` +
@@ -537,17 +646,14 @@ export function startTelegramBot(
     const keyboard = {
       inline_keyboard: [
         ...buttons,
-        [
-          { text: '📱 Читать в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
-        ],
+        [{ text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' }],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
       ],
     };
 
     return { text, keyboard };
   }
 
-  // 6.1 Просмотр средства исламской медицины
   function getIslamicDetailView(remedyId: number) {
     const item = INITIAL_ISLAMIC_REMEDIES.find((r) => r.id === remedyId);
     if (!item) {
@@ -571,9 +677,7 @@ export function startTelegramBot(
 
     const keyboard = {
       inline_keyboard: [
-        [
-          { text: `💬 Спросить ассистента про ${item.name_ru}`, callback_data: `ask_about_isl_${item.id}` },
-        ],
+        [{ text: `💬 Спросить ассистента про ${item.name_ru}`, callback_data: `ask_about_isl_${item.id}` }],
         [
           { text: '🔙 К списку исламской медицины', callback_data: 'nav_islamic' },
           { text: '🏠 Главное меню', callback_data: 'menu_main' },
@@ -584,14 +688,13 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 7. Раздел: Супер-Ассистент
   function getAssistantPromptView() {
     const text =
       `<b>🤖 СУПЕР-АССИСТЕНТ @DonDearOfficina</b>\n\n` +
       `Я обучен на концепции дипломированного провизора-химика, специалиста по нейробиологии и андрологии.\n\n` +
       `⚙️ <b>Как я работаю:</b>\n` +
       `• Сначала ищу первопричину (Cause-First), а не маскирую симптом.\n` +
-      `• Оцениваю каскад: ЖКТ ➔ Нейробуст ➔ Микронутриенты.\n` +
+      `• Оцениваю каскад: 1. ЖКТ ➔ 2. Нейробуст (длительно 6+ мес) ➔ 3. Фенотропил (2 мес).\n` +
       `• Даю ссылки на рецензируемые исследования (PMID) и уровни A–F.\n` +
       `• Проверяю взаимодействия с активным стеком владельца.\n\n` +
       `<i>Выберите частый вопрос кнопкой или напишите свой вопрос прямо в чат:</i>`;
@@ -600,19 +703,19 @@ export function startTelegramBot(
       inline_keyboard: [
         [
           { text: '💤 Упадок сил и сонливость', callback_data: 'ask_fatigue' },
-          { text: '🫄 Как принимать Урсосан и Хофитол?', callback_data: 'ask_gastro' },
+          { text: '🫄 Схема 1-го месяца (ЖКТ)', callback_data: 'ask_stage1' },
+        ],
+        [
+          { text: '🧠 Глиатилин + Креатин + Цитруллин (6+ мес)', callback_data: 'ask_stage2' },
+          { text: '⚡ Фенотропил: регламент 2 месяца', callback_data: 'ask_stage3' },
         ],
         [
           { text: '⚖️ Железо против Цинка (DMT-1)', callback_data: 'ask_interactions' },
           { text: '🦵 Зачем начинать с икр и приседаний?', callback_data: 'ask_workout' },
         ],
         [
-          { text: '🧠 Глиатилин + Фенотропил', callback_data: 'ask_nootropics' },
-          { text: '🌿 Доказательность чёрного тмина', callback_data: 'ask_tmin' },
-        ],
-        [
-          { text: '📱 Открыть диалог в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
+          { text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' },
+          { text: '🏠 Главное меню', callback_data: 'menu_main' },
         ],
       ],
     };
@@ -620,17 +723,22 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 8. Раздел: Профиль пользователя
   function getProfileView(userId: number) {
     const session = getUserSession(userId);
+    const phaseNames = {
+      1: '1-й месяц: Настройка ЖКТ и желчеоттока',
+      2: '2-й месяц: Подключение Нейробуста (6+ мес)',
+      3: '3-й месяц: Начало этапа с Фенотропилом',
+      4: '4-й месяц: Продолжение этапа с Фенотропилом',
+    };
 
     const text =
       `<b>👤 МОЙ ПРОФИЛЬ И СТАТУС ПРОТОКОЛА</b>\n\n` +
       `<b>Telegram ID:</b> <code>${userId}</code>\n` +
       `<b>Дата старта:</b> ${session.startDate}\n` +
-      `<b>Текущий этап:</b> ${session.currentPhase}-й месяц\n` +
+      `<b>Текущий этап:</b> ${phaseNames[session.currentPhase]}\n` +
       `<b>На авторском протоколе:</b> ${session.onAuthorProtocol ? '✅ ДА' : '❌ НЕТ'}\n\n` +
-      `<i>Когда вы на авторском протоколе, Супер-Ассистент автоматически проверяет совместимость любых добавок с вашим стеком (например, разнесение железа и цинка).</i>`;
+      `<i>Когда вы на авторском протоколе, Супер-Ассистент автоматически проверяет совместимость любых добавок с вашим стеком (например, разнесение железа и цинка на 4 часа).</i>`;
 
     const keyboard = {
       inline_keyboard: [
@@ -641,16 +749,16 @@ export function startTelegramBot(
           },
         ],
         [
-          { text: 'Переключить на 1-й мес (ЖКТ)', callback_data: 'set_phase_1' },
-          { text: 'Переключить на 2-й мес (Нейро)', callback_data: 'set_phase_2' },
+          { text: '1-й мес (ЖКТ)', callback_data: 'set_phase_1' },
+          { text: '2-й мес (Нейробуст)', callback_data: 'set_phase_2' },
         ],
         [
-          { text: 'Переключить на 3-й мес (Микро)', callback_data: 'set_phase_3' },
-          { text: 'Переключить на Поддержку', callback_data: 'set_phase_4' },
+          { text: '3-й мес (Фенотропил старт)', callback_data: 'set_phase_3' },
+          { text: '4-й мес (Фенотропил прод.)', callback_data: 'set_phase_4' },
         ],
         [
-          { text: '📱 Открыть профиль в Mini App', web_app: { url: appUrl } },
-          { text: '🔙 Главное меню', callback_data: 'menu_main' },
+          { text: '🎯 Перейти к авторскому курсу', callback_data: 'nav_course_root' },
+          { text: '🏠 Главное меню', callback_data: 'menu_main' },
         ],
       ],
     };
@@ -658,7 +766,6 @@ export function startTelegramBot(
     return { text, keyboard };
   }
 
-  // 9. Раздел: Связаться с автором
   function getDondearView() {
     const text =
       `<b>📩 СВЯЗЬ С ВЛАДЕЛЬЦЕМ @DonDearOfficina</b>\n\n` +
@@ -671,16 +778,16 @@ export function startTelegramBot(
     const keyboard = {
       inline_keyboard: [
         [{ text: '💬 Написать @DonDearOfficina', url: 'https://t.me/DonDearOfficina' }],
-        [{ text: '🔙 Главное меню', callback_data: 'menu_main' }],
+        [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
       ],
     };
 
     return { text, keyboard };
   }
 
-  // ==========================================
-  // ASSISTANT QUERY RESOLVER (Cause-First + Gemini/Fallback)
-  // ==========================================
+  // =========================================================================
+  // 5. ASSISTANT QUERY RESOLVER
+  // =========================================================================
   async function generateAssistantReply(query: string, userId?: number): Promise<string> {
     const lowerQ = query.toLowerCase();
     const session = userId ? getUserSession(userId) : { onAuthorProtocol: true };
@@ -714,7 +821,7 @@ export function startTelegramBot(
           return res.text;
         }
       } catch (err: any) {
-        console.warn('Gemini query timed out or failed, using deterministic response:', err.message);
+        // Fallback to deterministic
       }
     }
 
@@ -727,85 +834,84 @@ export function startTelegramBot(
         '• Замедленный желчеотток (холестаз) — нарушает мицеллообразование и всасывание жирорастворимых витаминов и CoQ10 — PMID:27385377\n\n' +
         '<b>💡 Что можно обсудить с врачом:</b>\n' +
         '• Исследование лабораторной панели: ферритин, ОАК, ТТГ, св. Т3, св. Т4, гомоцистеин — уровень A — PMID:30611908\n' +
-        '• Поддержка энергетического пула: Креатин моногидрат 5 г/сут утром — уровень A — PMID:30137909\n' +
-        '• Восстановление ЖКТ-фундамента: Хофитол (экстракт артишока) 2 таб. за 20 мин до еды — уровень B — PMID:26310198\n\n' +
-        (session.onAuthorProtocol ? '<b>⚠️ Взаимодействия со стеком:</b> Вы принимаете железо и цинк — разносите их на 3–4 часа из-за DMT-1!\n\n' : '') +
+        '• 1-й этап авторского курса: Хофитол (экстракт артишока) 2 таб. за 20 мин до еды + Полисорб (минимум 3 недели) — PMID:26310198\n' +
+        '• 2-й этап авторского курса: Креатин моногидрат 5 г/сут утром длительно (от 6 мес) — уровень A — PMID:30137909\n\n' +
+        (session.onAuthorProtocol ? '<b>⚠️ Взаимодействия со стеком:</b> Если принимаете железо и цинк — обязательно разносите их на 3–4 часа из-за DMT-1!\n\n' : '') +
         '<b>⚠️ Ограничения:</b> Точные причины требуют интерпретации объективных анализов крови.\n\n' +
         '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
         '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
       );
-    } else if (lowerQ.includes('жкт') || lowerQ.includes('желч') || lowerQ.includes('омез') || lowerQ.includes('урсосан')) {
+    } else if (lowerQ.includes('жкт') || lowerQ.includes('желч') || lowerQ.includes('хофитол') || lowerQ.includes('полисорб')) {
       return (
-        '<b>📋 Кратко:</b> Настройка ЖКТ и желчеоттока — основа основ и 1-й месяц концепции. Без качественной эмульгации жиров и санации тонкого кишечника желчью любые витамины и ноотропы транзитируются.\n\n' +
-        '<b>🔍 Механизм протокола:</b>\n' +
-        '• <b>Омез ДСР</b>: снижает кислотность и стимулирует моторику двенадцатиперстной кишки — PMID:28811808\n' +
-        '• <b>Урсосан (УДХК)</b>: вытесняет токсичные гидрофобные желчные кислоты, устраняет билиарный сладж — PMID:30852331\n' +
-        '• <b>Хофитол</b>: мягкий холеретик растительного происхождения перед едой — PMID:26310198\n' +
-        '• <b>Ребагит</b>: защита слизистого барьера и плотных контактов (tight junctions) — PMID:31976077\n\n' +
-        '<b>💡 Что можно обсудить с врачом:</b>\n' +
-        '• УЗИ органов брюшной полости с функциональной пробой (исключение конкрементов перед приемом желчегонных).\n' +
-        '• Схему первого месяца (Омез ДСР 10-14 дней утром, Урсосан на ночь, Хофитол за 20 мин до еды).\n\n' +
+        '<b>📋 Кратко:</b> Первый месяц авторского курса — «Настройка ЖКТ и желчеоттока» (основа основ всего каскада).\n\n' +
+        '<b>🔍 Базовый авторский стек 1-го месяца:</b>\n' +
+        '• <b>Хофитол</b> (экстракт артишока): 2 таб. за 20 мин до еды 3 р/день (холерез и холекинез) — PMID:26310198\n' +
+        '• <b>Полисорб МП</b>: принимается в авторской концепции <b>минимум 3 недели</b> (отдельно от еды и Хофитола на 1.5–2 часа) для элиминации эндотоксинов ЛПС\n' +
+        '• <b>Энтерол</b>: 250 мг 2 раза в день за 1 час до еды для восстановления плотных контактов энтероцитов — PMID:31430489\n\n' +
+        '<b>⚠️ Важные правила автора:</b>\n' +
+        '• Перед приемом Хофитола обязательно УЗИ ОБП для исключения камней.\n' +
+        '• При наличии камней автором предусмотрен <b>Урсосан (УДХК)</b> как альтернатива (не универсально, требует контроля врача!).\n' +
+        '• Из базового стека автором исключены Ребагит, Креон и Омез ДСР.\n\n' +
         '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
         '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
       );
-    } else if (lowerQ.includes('желез') || lowerQ.includes('цинк') || lowerQ.includes('ферлатум') || lowerQ.includes('dmt-1')) {
+    } else if (lowerQ.includes('нейробуст') || lowerQ.includes('глиатилин') || lowerQ.includes('креатин') || lowerQ.includes('цитруллин')) {
       return (
-        '<b>📋 Кратко:</b> Железо (Ферлатум Фол) и Цинк (пиколинат) строго несовместимы при одновременном приеме из-за конкуренции за общий кишечный переносчик DMT-1.\n\n' +
-        '<b>🔍 Фармацевтический механизм:</b>\n' +
-        '• Катионы Fe2+/Fe3+ и Zn2+ конкурируют за белок-транспортер двухвалентных металлов DMT-1 в энтероцитах ДПК.\n' +
-        '• Совместный прием снижает биодоступность обоих минералов на 40–60% — PMID:10799383.\n\n' +
+        '<b>📋 Кратко:</b> Второй месяц авторского курса — «Подключение Нейробуста и основных компонентов».\n\n' +
+        '<b>⚡ Важнейший принцип автора:</b>\n' +
+        'Цитруллин, Креатин и Глиатилин подключаются на 2-м месяце, но их прием продолжается <b>МИНИМУМ 6 МЕСЯЦЕВ</b> (от 6 до 12 месяцев)! Второй месяц обозначает точку входа, а не окончание приёма.\n\n' +
+        '<b>🔍 Механизм компонентов:</b>\n' +
+        '• <b>Глиатилин</b> (400 мг 2 р/день): донор холина, принимается длительно (6–12 мес) строго ДО стимуляторов для насыщения пула ацетилхолина — PMID:12637119.\n' +
+        '• <b>Креатин моногидрат</b> (5 г/сут): фосфатный буфер ресинтеза АТФ нейронов и мышц длительно (6–12 мес) — PMID:33578876.\n' +
+        '• <b>L-Цитруллин</b> (3–5 г/сут): синтез оксида азота (NO), снятие тазового стаза длительно (6–12 мес) — PMID:28849984.\n\n' +
+        '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
+        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
+      );
+    } else if (lowerQ.includes('фенотропил') || lowerQ.includes('фонтурацетам')) {
+      return (
+        '<b>📋 Кратко:</b> Третий и четвёртый месяцы авторского курса — «Двухмесячный этап с Фенотропилом».\n\n' +
+        '<b>🔍 Регламент автора:</b>\n' +
+        '• 3-й месяц — начало этапа с Фенотропилом.\n' +
+        '• 4-й месяц — продолжение этого этапа.\n' +
+        '• <b>Продолжительность: ровно 2 месяца</b> (100 мг утром натощак).\n' +
+        '• <b>Обязательное условие:</b> принимается СТРОГО на фоне продолжающегося приема Глиатилина, Креатина и Цитруллина!\n' +
+        '• Стимуляция никотиновых и дофаминовых рецепторов без холина истощает синапс — PMID:21626398.\n\n' +
+        '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
+        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
+      );
+    } else if (lowerQ.includes('ноопепт') || lowerQ.includes('апепт') || lowerQ.includes('пирацетам')) {
+      return (
+        '<b>📋 Кратко:</b> В концепции автора последовательность после завершения двухмесячного этапа с Фенотропилом включает: сначала <b>Пирацетам</b>, затем <b>Ноопепт</b> (ранее ошибочно названный «Апепт»), а далее возможность рассмотрения других ноотропов.\n\n' +
+        '<b>🔍 Важное замечание:</b>\n' +
+        'Они не являются автоматическим назначением и не входят в базовый 4-месячный курс, а вынесены во вспомогательные средства как опции для последующего отдельного рассмотрения.\n\n' +
+        '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
+        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
+      );
+    } else if (lowerQ.includes('желез') || lowerQ.includes('цинк') || lowerQ.includes('dmt-1')) {
+      return (
+        '<b>📋 Кратко:</b> Железо (Ферлатум Фол) и Цинк (пиколинат) строго несовместимы при одновременном приеме из-за конкуренции за переносчик двухвалентных металлов DMT-1 в ДПК.\n\n' +
         '<b>💡 Как правильно принимать:</b>\n' +
-        '• Железо (Ферлатум Фол) + Витамин С — утром до еды (аскорбиновая кислота усиливает абсорбцию Fe).\n' +
-        '• Цинк пиколинат — в обед с плотной едой (через 3.5–4 часа после железа).\n\n' +
+        '• Железо + Витамин С — утром до еды.\n' +
+        '• Цинк — в обед с плотной едой (через 3.5–4 часа после железа) — PMID:10799383.\n\n' +
         '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
-        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
-      );
-    } else if (lowerQ.includes('глий') || lowerQ.includes('глиатилин') || lowerQ.includes('фенотропил') || lowerQ.includes('холин')) {
-      return (
-        '<b>📋 Кратко:</b> Каскадная связка: сначала насыщение субстрата ацетилхолина (Глиатилин), затем мягкая дофаминергическая стимуляция (Фенотропил).\n\n' +
-        '<b>🔍 Механизм:</b>\n' +
-        '• <b>Глиатилин (холина альфосцерат):</b> донор холина, проникает через ГЭБ, пьется длительно (от 6 до 12 месяцев) — PMID:12637119.\n' +
-        '• <b>Фенотропил (фонтурацетам):</b> повышает плотность рецепторов, пьется строго 2 месяца (2-й и 3-й месяцы курса) — PMID:21626398.\n' +
-        '• Если стимулировать рецепторы без предшествующего насыщения холином — синапс быстро истощается.\n\n' +
-        '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
-        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
-      );
-    } else if (lowerQ.includes('тмин') || lowerQ.includes('ислам') || lowerQ.includes('хиджам')) {
-      return (
-        '<b>📋 Кратко:</b> Средства исламской медицины (тибб-и-набави) оцениваются через призму современной доказательной фармации.\n\n' +
-        '<b>🕌 Традиционный контекст:</b> Сахих аль-Бухари 5688 («В черном тмине исцеление от всякой болезни, кроме смерти»).\n' +
-        '<b>🔬 Научная проверка:</b> Тимохинон снижает системные воспалительные маркеры (hs-CRP, TNF-α, IL-6) — уровень A — PMID:33737279, PMID:32359568.\n' +
-        '<b>👤 Опыт владельца:</b> 1 ч.л. масла холодного отжима утром 21 день (наблюдение n=1, не отменяет РКИ).\n\n' +
-        '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
-        '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
-      );
-    } else if (lowerQ.includes('трен') || lowerQ.includes('присед') || lowerQ.includes('икр') || lowerQ.includes('мышц')) {
-      return (
-        '<b>📋 Кратко:</b> Система комплексных тренировок всего тела с приоритетом ног (автор: @DonDearOfficina).\n\n' +
-        '<b>🏋️ Ключевые принципы:</b>\n' +
-        '• Длительность: 45–60 минут.\n' +
-        '• <b>Старт:</b> Каждое занятие начинается с икроножных мышц (периферическая венозная помпа), затем 2 подхода приседаний в отказ (своим весом или с отягощением) — снятие застоев малого таза и мощный гормональный стимул.\n' +
-        '• <b>Структура:</b> 2 грудь + 2 спина + 2 плечи + 2 ноги + ягодичные отдельно.\n' +
-        '• <b>Свободное чередование:</b> переход между мышцами без строгой фиксации на одну группу для идеального локального восстановления.\n' +
-        '• <b>Отдых:</b> 1.5–2 минуты между тяжелыми подходами.\n\n' +
         '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
       );
     } else {
       return (
-        '<b>📋 Кратко:</b> Ваш запрос проанализирован по каскадной модели @DonDearOfficina (ЖКТ ➔ Гормональный стимул через ноги ➔ Нейробуст).\n\n' +
-        '<b>💡 Что можно обсудить с врачом:</b>\n' +
-        '• Базовый лабораторный скрининг (ОАК, биохимия, ферритин, липидограмма).\n' +
-        '• Индивидуальную коррекцию рациона и устранение билиарных застоев.\n\n' +
-        (session.onAuthorProtocol ? '⚠️ Сверка со стеком @DonDearOfficina: противопоказаний к базовому стеку не выявлено.\n\n' : '') +
+        '<b>📋 Кратко:</b> Ваш запрос проанализирован по каскадной модели @DonDearOfficina:\n' +
+        '1. Настройка ЖКТ и желчеоттока (1-й мес: Хофитол, Полисорб от 3 нед, Энтерол)\n' +
+        '2. Подключение Нейробуста (2-й мес: Глиатилин, Креатин, Цитруллин — длительно 6+ мес)\n' +
+        '3. Двухмесячный этап с Фенотропилом (3-й и 4-й мес — ровно 2 месяца)\n\n' +
+        'Вспомогательные препараты и БАДы доступны в отдельном каталоге бота.\n\n' +
         '<i>Это не медицинская рекомендация. Проконсультируйтесь с врачом.</i>\n\n' +
         '<a href="https://t.me/DonDearOfficina">📩 Обсудить с @DonDearOfficina</a>'
       );
     }
   }
 
-  // ==========================================
-  // MAIN POLLING LOOP & ROUTER
-  // ==========================================
+  // =========================================================================
+  // 6. MAIN POLLING LOOP & ROUTER
+  // =========================================================================
   async function poll() {
     while (isRunning) {
       try {
@@ -815,25 +921,42 @@ export function startTelegramBot(
           signal: AbortSignal.timeout(22000),
         });
 
+        if (response.status === 409) {
+          botTelemetry.lastError = '409 Conflict: Another active bot instance is polling. Pausing for 30s...';
+          await new Promise((r) => setTimeout(r, 30000));
+          continue;
+        }
+
         if (!response.ok) {
           botTelemetry.consecutiveErrors++;
           botTelemetry.lastError = `HTTP ${response.status} ${response.statusText}`;
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 4000));
           continue;
         }
 
         const data = await response.json();
+
+        if (!data.ok) {
+          if (data.error_code === 409) {
+            botTelemetry.lastError = '409 Conflict: Another instance is polling';
+            await new Promise((r) => setTimeout(r, 30000));
+            continue;
+          }
+          botTelemetry.consecutiveErrors++;
+          botTelemetry.lastError = `Telegram API notice: ${data.description || 'Unknown'}`;
+          await new Promise((r) => setTimeout(r, 4000));
+          continue;
+        }
+
         botTelemetry.consecutiveErrors = 0;
         botTelemetry.lastError = null;
 
-        if (data.ok && Array.isArray(data.result)) {
+        if (Array.isArray(data.result)) {
           for (const update of data.result as TelegramUpdate[]) {
             offset = update.update_id + 1;
             botTelemetry.totalUpdatesProcessed++;
 
-            // ====================================================
-            // 1. INLINE CALLBACK QUERY HANDLER
-            // ====================================================
+            // --- 1. INLINE CALLBACK QUERY HANDLER ---
             if (update.callback_query) {
               const cq = update.callback_query;
               const chatId = cq.message?.chat.id;
@@ -847,57 +970,117 @@ export function startTelegramBot(
 
               const session = getUserSession(userId);
 
-              // Router for Callbacks:
+              // Главная навигация
               if (action === 'menu_main') {
                 const view = getMainMenuView(userId);
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_gastro') {
-                const view = getGastroView(userId);
+              }
+              // Главная кнопка «Начать авторский курс»
+              else if (action === 'nav_course_root') {
+                const view = getCourseOverviewView();
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_workout') {
+              }
+              // Этап 1: ЖКТ и желчеотток
+              else if (action === 'course_stage_1') {
+                const view = getStage1View();
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Этап 2: Подключение Нейробуста (6+ мес)
+              else if (action === 'course_stage_2') {
+                const view = getStage2View();
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Этап 3: Двухмесячный этап с Фенотропилом (3-й и 4-й мес)
+              else if (action === 'course_stage_3') {
+                const view = getStage3View();
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Схема-таймлайн курса
+              else if (action === 'course_timeline') {
+                const view = getCourseTimelineView();
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Раздел: Вспомогательные препараты и БАДы
+              else if (action === 'nav_auxiliary_root') {
+                const view = getAuxiliaryCatalogView();
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Просмотр карточки препарата (со всеми 7 подразделами)
+              else if (action.startsWith('med_view_')) {
+                const medId = parseInt(action.replace('med_view_', ''), 10);
+                const view = getMedDetailView(medId);
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Тренировки
+              else if (action === 'nav_workout') {
                 const view = getWorkoutView(userId);
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_meds') {
-                const view = getMedsCatalogView('all');
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_knowledge') {
+              }
+              // База знаний
+              else if (action === 'nav_knowledge') {
                 const view = getKnowledgeListView();
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_islamic') {
+              } else if (action.startsWith('kb_art_')) {
+                const artId = parseInt(action.replace('kb_art_', ''), 10);
+                const view = getKnowledgeArticleView(artId);
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Исламская медицина
+              else if (action === 'nav_islamic') {
                 const view = getIslamicListView();
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_assistant') {
+              } else if (action.startsWith('isl_view_')) {
+                const remId = parseInt(action.replace('isl_view_', ''), 10);
+                const view = getIslamicDetailView(remId);
+                await editMessage(chatId, messageId, view.text, view.keyboard);
+              }
+              // Ассистент
+              else if (action === 'nav_assistant') {
                 const view = getAssistantPromptView();
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_profile') {
+              }
+              // Профиль
+              else if (action === 'nav_profile') {
                 const view = getProfileView(userId);
                 await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'nav_dondear') {
+              }
+              // Автор
+              else if (action === 'nav_dondear') {
                 const view = getDondearView();
                 await editMessage(chatId, messageId, view.text, view.keyboard);
               }
-
-              // Gastro Interactive Check-list Toggles
-              else if (action.startsWith('toggle_gastro_')) {
-                const slot = action.replace('toggle_', '');
-                session.gastroDayChecks[slot] = !session.gastroDayChecks[slot];
-                const view = getGastroView(userId);
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action === 'gastro_rules') {
-                const rulesText =
-                  `<b>⚠️ ПРАВИЛА БЕЗОПАСНОСТИ 1-ГО МЕСЯЦА (ЖКТ)</b>\n\n` +
-                  `1. <b>УЗИ ОБП ОБЯЗАТЕЛЬНО:</b> Перед приемом любых желчегонных (Хофитол, Урсосан, артишок) необходимо выполнить УЗИ брюшной полости, чтобы исключить наличие конкрементов в желчном пузыре. При желчнокаменной болезни стимуляция сокращения пузыря опасна вклинением камня!\n\n` +
-                  `2. <b>Омез ДСР:</b> принимается строго натощак за 30 мин до завтрака не более 10–14 дней подряд. Далее при необходимости продолжается чистый рабепразол/омепразол без домперидона.\n\n` +
-                  `3. <b>Урсосан:</b> принимается во время вечернего приема пищи или перед сном с небольшим перекусом для предотвращения рефлюкса.\n\n` +
-                  `4. <b>Ребагит:</b> принимается курсом 4 недели для укрепления плотных контактов (tight junctions) энтероцитов.`;
-                const keyboard = {
-                  inline_keyboard: [
-                    [{ text: '🔙 Назад к разделу ЖКТ', callback_data: 'nav_gastro' }],
-                  ],
-                };
-                await editMessage(chatId, messageId, rulesText, keyboard);
+              // Быстрые вопросы ассистенту
+              else if (action === 'ask_fatigue') {
+                const reply = await generateAssistantReply('сонливость и упадок сил', userId);
+                await sendMessage(chatId, reply);
+              } else if (action === 'ask_stage1') {
+                const reply = await generateAssistantReply('первый этап авторского курса жкт хофитол полисорб энтерол', userId);
+                await sendMessage(chatId, reply);
+              } else if (action === 'ask_stage2') {
+                const reply = await generateAssistantReply('второй этап авторского курса глиатилин креатин цитруллин длительно 6 месяцев', userId);
+                await sendMessage(chatId, reply);
+              } else if (action === 'ask_stage3') {
+                const reply = await generateAssistantReply('двухмесячный этап фенотропил третий и четвертый месяцы курса', userId);
+                await sendMessage(chatId, reply);
+              } else if (action === 'ask_interactions') {
+                const reply = await generateAssistantReply('железо и цинк взаимодействие dmt-1', userId);
+                await sendMessage(chatId, reply);
+              } else if (action === 'ask_workout') {
+                const reply = await generateAssistantReply('зачем начинать тренировку с икр и приседаний в отказ', userId);
+                await sendMessage(chatId, reply);
+              } else if (action.startsWith('ask_about_med_')) {
+                const mId = parseInt(action.replace('ask_about_med_', ''), 10);
+                const m = INITIAL_MEDICATIONS.find((x) => x.id === mId);
+                const query = `Расскажи клиническое действие и регламент для ${m?.name || ''} в концепции @DonDearOfficina`;
+                const reply = await generateAssistantReply(query, userId);
+                await sendMessage(chatId, reply);
+              } else if (action.startsWith('ask_about_isl_')) {
+                const iId = parseInt(action.replace('ask_about_isl_', ''), 10);
+                const isl = INITIAL_ISLAMIC_REMEDIES.find((x) => x.id === iId);
+                const query = `Разбери доказательную базу и традицию для ${isl?.name_ru || ''}`;
+                const reply = await generateAssistantReply(query, userId);
+                await sendMessage(chatId, reply);
               }
-
               // Workout Toggles & Timers
               else if (action.startsWith('toggle_work_')) {
                 const key = action.replace('toggle_work_', '');
@@ -905,21 +1088,21 @@ export function startTelegramBot(
                 const view = getWorkoutView(userId);
                 await editMessage(chatId, messageId, view.text, view.keyboard);
               } else if (action === 'workout_timer_90') {
-                await sendMessage(chatId, '⏱️ <b>Таймер запущен: 90 секунд отдыха!</b>\n\nВосстанавливайте дыхание, попейте воды. Бот пришлет сигнал, когда пора начинать подход.');
+                await sendMessage(chatId, '⏱️ <b>Таймер запущен: 90 секунд отдыха!</b>\n\nВосстанавливайте дыхание, пейте воду.');
                 setTimeout(() => {
                   sendMessage(chatId, '🔔 <b>90 секунд прошло! Время начинать следующий подход!</b> 💪');
                 }, 90000);
               } else if (action === 'workout_timer_120') {
-                await sendMessage(chatId, '⏱️ <b>Таймер запущен: 120 секунд отдыха!</b>\n\nДлинная пауза для тяжелых отказных подходов. Глубокое дыхание.');
+                await sendMessage(chatId, '⏱️ <b>Таймер запущен: 120 секунд отдыха!</b>\n\nДлинная пауза для тяжелых отказных приседаний.');
                 setTimeout(() => {
                   sendMessage(chatId, '🔔 <b>120 секунд прошло! Время начинать следующий тяжелый подход!</b> 🔥');
                 }, 120000);
               } else if (action === 'workout_bio') {
                 const bioText =
                   `<b>🧬 ФИЗИОЛОГИЧЕСКИЙ МЕХАНИЗМ ТРЕНИРОВКИ</b>\n\n` +
-                  `• <b>Мышечно-венозная помпа голени:</b> икроножные и камбаловидные мышцы содержат глубокие венозные синусы. Их сокращение проталкивает кровь вверх против силы гравитации, ликвидируя отек и застой.\n\n` +
-                  `• <b>Приседания в отказ:</b> механическая компрессия и декомпрессия капсулы предстательной железы. Устраняет застой в plexus venosus prostaticus, активирует клетки Лейдига за счет притока артериальной крови.\n\n` +
-                  `• <b>Гормональный отклик:</b> работа крупных мышечных массивов до отказа стимулирует гипоталамо-гипофизарную ось к импульсному выбросу соматотропного гормона (СТГ) и тестостерона.`;
+                  `• <b>Мышечно-венозная помпа голени:</b> икроножные и камбаловидные мышцы проталкивают кровь вверх, ликвидируя отек и гравитационный застой.\n\n` +
+                  `• <b>Приседания в отказ:</b> компрессия и декомпрессия капсулы предстательной железы, устранение застоя в plexus venosus prostaticus, активация клеток Лейдига артериальной кровью.\n\n` +
+                  `• <b>Гормональный отклик:</b> работа крупных массивов до отказа стимулирует гипоталамо-гипофизарную ось к выбросу СТГ и тестостерона.`;
                 const keyboard = {
                   inline_keyboard: [[{ text: '🔙 Назад к тренировкам', callback_data: 'nav_workout' }]],
                 };
@@ -936,33 +1119,7 @@ export function startTelegramBot(
                 };
                 await editMessage(chatId, messageId, exercisesText, keyboard);
               }
-
-              // Meds Catalog Category Filters
-              else if (action.startsWith('meds_cat_')) {
-                const cat = action.replace('meds_cat_', '') as any;
-                const view = getMedsCatalogView(cat);
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              } else if (action.startsWith('med_view_')) {
-                const medId = parseInt(action.replace('med_view_', ''), 10);
-                const view = getMedDetailView(medId);
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              }
-
-              // Knowledge Base View
-              else if (action.startsWith('kb_art_')) {
-                const artId = parseInt(action.replace('kb_art_', ''), 10);
-                const view = getKnowledgeArticleView(artId);
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              }
-
-              // Islamic Medicine View
-              else if (action.startsWith('isl_view_')) {
-                const remId = parseInt(action.replace('isl_view_', ''), 10);
-                const view = getIslamicDetailView(remId);
-                await editMessage(chatId, messageId, view.text, view.keyboard);
-              }
-
-              // Profile Actions
+              // Profile Toggles
               else if (action === 'toggle_user_protocol') {
                 session.onAuthorProtocol = !session.onAuthorProtocol;
                 const view = getProfileView(userId);
@@ -974,54 +1131,24 @@ export function startTelegramBot(
                 await editMessage(chatId, messageId, view.text, view.keyboard);
               }
 
-              // Fast Predefined Assistant Queries
-              else if (action === 'ask_fatigue') {
-                const reply = await generateAssistantReply('сонливость и упадок сил', userId);
-                await sendMessage(chatId, reply);
-              } else if (action === 'ask_gastro') {
-                const reply = await generateAssistantReply('как принимать урсосан и хофитол', userId);
-                await sendMessage(chatId, reply);
-              } else if (action === 'ask_interactions') {
-                const reply = await generateAssistantReply('железо и цинк взаимодействие dmt-1', userId);
-                await sendMessage(chatId, reply);
-              } else if (action === 'ask_workout') {
-                const reply = await generateAssistantReply('зачем тренироваться начиная с икр и приседаний', userId);
-                await sendMessage(chatId, reply);
-              } else if (action === 'ask_nootropics') {
-                const reply = await generateAssistantReply('глиатилин и фенотропил схема приема', userId);
-                await sendMessage(chatId, reply);
-              } else if (action === 'ask_tmin') {
-                const reply = await generateAssistantReply('доказательность черного тмина тимохинон pmid', userId);
-                await sendMessage(chatId, reply);
-              } else if (action.startsWith('ask_about_med_')) {
-                const mId = parseInt(action.replace('ask_about_med_', ''), 10);
-                const m = INITIAL_MEDICATIONS.find((x) => x.id === mId);
-                const query = `Расскажи клиническое действие препарата ${m?.name || ''} в стеке @DonDearOfficina, его дозировку и метаанализы`;
-                const reply = await generateAssistantReply(query, userId);
-                await sendMessage(chatId, reply);
-              } else if (action.startsWith('ask_about_isl_')) {
-                const iId = parseInt(action.replace('ask_about_isl_', ''), 10);
-                const isl = INITIAL_ISLAMIC_REMEDIES.find((x) => x.id === iId);
-                const query = `Разбери доказательную базу и традицию для ${isl?.name_ru || ''}`;
-                const reply = await generateAssistantReply(query, userId);
-                await sendMessage(chatId, reply);
-              }
-
               continue;
             }
 
-            // ====================================================
-            // 2. TEXT MESSAGES & SLASH COMMANDS HANDLER
-            // ====================================================
+            // --- 2. TEXT MESSAGES & SLASH COMMANDS HANDLER ---
             if (update.message && typeof update.message.text === 'string') {
               const msg = update.message;
               const chatId = msg.chat.id;
               const userId = msg.from.id;
               const text = update.message.text.trim();
 
-              // Slash Commands
               if (text === '/start' || text.toLowerCase() === 'меню' || text.toLowerCase() === 'главная') {
                 const view = getMainMenuView(userId);
+                await sendMessage(chatId, view.text, view.keyboard);
+              } else if (text === '/course' || text.toLowerCase() === 'курс') {
+                const view = getCourseOverviewView();
+                await sendMessage(chatId, view.text, view.keyboard);
+              } else if (text === '/auxiliary' || text.toLowerCase() === 'бады') {
+                const view = getAuxiliaryCatalogView();
                 await sendMessage(chatId, view.text, view.keyboard);
               } else if (text === '/app') {
                 await sendMessage(
@@ -1033,14 +1160,8 @@ export function startTelegramBot(
                     ],
                   }
                 );
-              } else if (text === '/gastro') {
-                const view = getGastroView(userId);
-                await sendMessage(chatId, view.text, view.keyboard);
               } else if (text === '/workout') {
                 const view = getWorkoutView(userId);
-                await sendMessage(chatId, view.text, view.keyboard);
-              } else if (text === '/meds') {
-                const view = getMedsCatalogView('all');
                 await sendMessage(chatId, view.text, view.keyboard);
               } else if (text === '/knowledge') {
                 const view = getKnowledgeListView();
@@ -1063,9 +1184,10 @@ export function startTelegramBot(
                 await sendMessage(chatId, answer, {
                   inline_keyboard: [
                     [
+                      { text: '🎯 Начать авторский курс', callback_data: 'nav_course_root' },
                       { text: '💬 Задать еще вопрос', callback_data: 'nav_assistant' },
-                      { text: '🏠 Главное меню', callback_data: 'menu_main' },
                     ],
+                    [{ text: '🏠 Главное меню', callback_data: 'menu_main' }],
                   ],
                 });
               }
@@ -1073,12 +1195,20 @@ export function startTelegramBot(
           }
         }
       } catch (err: any) {
+        const isRoutineTimeout =
+          err.name === 'TimeoutError' ||
+          err.name === 'AbortError' ||
+          err.message?.includes('aborted') ||
+          err.message?.includes('timeout') ||
+          err.message?.includes('The operation was aborted');
+
+        if (isRoutineTimeout) {
+          continue;
+        }
+
         botTelemetry.consecutiveErrors++;
         botTelemetry.lastError = err.message || String(err);
         const delay = Math.min(15000, 1000 * Math.pow(1.5, Math.min(botTelemetry.consecutiveErrors, 8)));
-        if (!err.message?.includes('aborted') && !err.message?.includes('timeout')) {
-          console.warn(`⚠️ [Telegram Watchdog] Poll error (${botTelemetry.consecutiveErrors}): ${err.message || err}. Reconnecting in ${Math.round(delay)}ms...`);
-        }
         await new Promise((r) => setTimeout(r, delay));
       }
     }
@@ -1088,8 +1218,9 @@ export function startTelegramBot(
   const heartbeatTimer = setInterval(() => {
     if (!isRunning) return;
     const uptimeSec = Math.floor((Date.now() - new Date(botTelemetry.startTime).getTime()) / 1000);
+    const healthNote = botTelemetry.consecutiveErrors > 0 ? ` [reconnecting: ${botTelemetry.consecutiveErrors}]` : ' [healthy]';
     console.log(
-      `💓 [Telegram Watchdog Heartbeat] Status: ONLINE • Uptime: ${uptimeSec}s • Processed: ${botTelemetry.totalUpdatesProcessed} updates • Errors: ${botTelemetry.consecutiveErrors}`
+      `[Telegram Watchdog Heartbeat] Status: READY • Uptime: ${uptimeSec}s • Processed: ${botTelemetry.totalUpdatesProcessed}${healthNote}`
     );
   }, 180000);
 

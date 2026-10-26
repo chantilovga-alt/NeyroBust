@@ -128,6 +128,14 @@ export interface Medication {
   meta_analysis_refs?: string[]; // Ссылки на метаанализы (PMID/DOI)
   evidence_refs?: string[];
   clarification_note?: string;
+  // 7 структурированных подразделов:
+  purpose?: string; // 2. Для чего используется
+  when_considered?: string; // 3. Когда рассматривается применение
+  instruction_usage?: string; // 4. Как принимать по инструкции (производитель)
+  personal_experience?: string; // 5. Личный опыт автора
+  precautions?: string; // 6. Ограничения и предостережения
+  relation_to_main_course?: string; // 7. Связь с основным курсом
+  is_main_course?: boolean; // Входит ли в основной 4-месячный авторский курс
   created_at: string;
   updated_at: string;
   archived_at?: string;

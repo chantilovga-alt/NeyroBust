@@ -71,7 +71,7 @@ export const TelegramMiniApp: React.FC = () => {
     queryAssistant,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'gastro' | 'workout' | 'meds' | 'assistant' | 'knowledge' | 'profile'>('gastro');
+  const [activeTab, setActiveTab] = useState<'course' | 'auxiliary' | 'workout' | 'assistant' | 'knowledge' | 'profile'>('course');
   const [deviceFrame, setDeviceFrame] = useState<boolean>(true);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [copiedCommands, setCopiedCommands] = useState<boolean>(false);
@@ -90,8 +90,9 @@ export const TelegramMiniApp: React.FC = () => {
   const [isAsking, setIsAsking] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Selected med filter
-  const [medFilter, setMedFilter] = useState<'all' | '1' | '2' | '3' | '4' | 'medicine' | 'supplement'>('all');
+  // Auxiliary catalog filters
+  const [auxCategory, setAuxCategory] = useState<'all' | 'nootropics' | 'minerals' | 'adaptogens' | 'gastro_extra' | 'antioxidants'>('all');
+  const [auxSearch, setAuxSearch] = useState('');
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
 
   // Initialize Telegram WebApp SDK if inside Telegram client
@@ -179,14 +180,42 @@ export const TelegramMiniApp: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  // Filtered meds
-  const filteredMeds = medications.filter((m) => {
-    if (medFilter === '1') return m.month_phase === 1;
-    if (medFilter === '2') return m.month_phase === 2;
-    if (medFilter === '3') return m.month_phase === 3;
-    if (medFilter === '4') return m.month_phase === 4;
-    if (medFilter === 'medicine') return m.legal_category_rf === 'medicine';
-    if (medFilter === 'supplement') return m.legal_category_rf === 'supplement';
+  // Auxiliary medications filtered
+  const auxiliaryMeds = medications.filter((m) => m.is_main_course === false);
+  const filteredAuxMeds = auxiliaryMeds.filter((m) => {
+    const matchesSearch =
+      !auxSearch ||
+      m.name.toLowerCase().includes(auxSearch.toLowerCase()) ||
+      (m.active_ingredient && m.active_ingredient.toLowerCase().includes(auxSearch.toLowerCase())) ||
+      (m.purpose && m.purpose.toLowerCase().includes(auxSearch.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (auxCategory === 'nootropics') {
+      return ['пирацетам', 'ноопепт', 'пикамилон', 'фенибут', 'пантогам', 'глицин', 'мексидол'].some((k) =>
+        m.name.toLowerCase().includes(k)
+      );
+    }
+    if (auxCategory === 'minerals') {
+      return ['цинк', 'магний', 'железо', 'витамин d', 'b-комплекс', 'медь', 'йод', 'селен', 'фолат'].some((k) =>
+        m.name.toLowerCase().includes(k)
+      );
+    }
+    if (auxCategory === 'adaptogens') {
+      return ['тмин', 'родиола', 'ашваганда', 'женьшень', 'элеутерококк', 'левзея', 'ежовик'].some((k) =>
+        m.name.toLowerCase().includes(k)
+      );
+    }
+    if (auxCategory === 'gastro_extra') {
+      return ['ребагит', 'креон', 'омез', 'урсосан', 'тримедат', 'дюспаталин'].some((k) =>
+        m.name.toLowerCase().includes(k)
+      );
+    }
+    if (auxCategory === 'antioxidants') {
+      return ['глутатион', 'nac', 'ацетилцистеин', 'альфа-липоевая', 'коэнзим q10', 'астаксантин', 'ресвератрол'].some((k) =>
+        m.name.toLowerCase().includes(k)
+      );
+    }
     return true;
   });
 
@@ -281,14 +310,27 @@ export const TelegramMiniApp: React.FC = () => {
             <button
               onClick={() => {
                 triggerHaptic('light');
-                setActiveTab('gastro');
+                setActiveTab('course');
               }}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition ${
-                activeTab === 'gastro' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                activeTab === 'course' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
               }`}
             >
-              <span>🌿</span>
-              <span>1-й мес (ЖКТ)</span>
+              <span>🎯</span>
+              <span>Авторский курс</span>
+            </button>
+
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                setActiveTab('auxiliary');
+              }}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition ${
+                activeTab === 'auxiliary' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>📦</span>
+              <span>Вспомогательные БАДы</span>
             </button>
 
             <button
@@ -302,19 +344,6 @@ export const TelegramMiniApp: React.FC = () => {
             >
               <span>🏋️‍♂️</span>
               <span>Тренировки</span>
-            </button>
-
-            <button
-              onClick={() => {
-                triggerHaptic('light');
-                setActiveTab('meds');
-              }}
-              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition ${
-                activeTab === 'meds' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <span>💊</span>
-              <span>Препараты</span>
             </button>
 
             <button
@@ -359,72 +388,211 @@ export const TelegramMiniApp: React.FC = () => {
 
           {/* Mini App Body Views */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* 1. GASTRO MONTH 1 TAB */}
-            {activeTab === 'gastro' && (
-              <div className="space-y-3.5">
-                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-600/30">
+            {/* 1. UNIFIED AUTHOR COURSE TAB */}
+            {activeTab === 'course' && (
+              <div className="space-y-4">
+                {/* Course Header Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-950/50 via-slate-900 to-indigo-950/50 border border-cyan-500/30 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">🌿</span>
+                    <span className="text-2xl">🎯</span>
                     <div>
-                      <h3 className="text-sm font-bold text-white">1-й месяц: Настройка работы ЖКТ</h3>
-                      <p className="text-[10px] text-emerald-400">Основа основ авторской системы @DonDearOfficina</p>
+                      <h3 className="text-sm font-bold text-white">Авторский курс @DonDearOfficina</h3>
+                      <p className="text-[10px] text-cyan-400">Единая последовательная программа • Принцип Cause-First</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                    Пока не восстановлен желчеотток (эмульгация жиров) и не запечатан кишечный барьер (leaky gut),
-                    ноотропы и витамины транзитом покидают организм, вызывая интоксикацию и нейровоспаление.
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Все этапы выстроены в строгую физиологическую цепочку: от настройки желчеоттока и слизистого барьера ЖКТ
+                    к насыщению пула ацетилхолина и длительной энергетической базе (6+ месяцев), и только затем к двухмесячной стимуляции Фенотропилом.
                   </p>
                 </div>
 
-                {/* 2 Core Medications */}
-                <div className="space-y-2.5">
-                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-white">1. Хофитол (Экстракт артишока)</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/40">
-                        ЛС (ГРЛС)
-                      </span>
+                {/* STAGE 1: ЖКТ И ЖЕЛЧЕОТТОК */}
+                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-emerald-600/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🫄</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">1-й месяц — «Настройка ЖКТ и желчеоттока»</h4>
+                        <span className="text-[9px] text-emerald-400 font-semibold">Базовый фундамент усвоения</span>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-300">
-                      <b>Режим:</b> 2 таблетки × 3 р/сут за 20 мин до еды.
-                    </p>
-                    <p className="text-[11px] text-cyan-300/90 italic">
-                      <b>Зачем в стеке:</b> Стимуляция холереза и холекинеза. Желчные кислоты необходимы для всасывания омега-3, витаминов D3 и ноотропов.
-                    </p>
-                    <div className="text-[10px] text-amber-300 font-mono">
-                      Мета-анализ: 8 РКИ (n=512) — улучшение пассажа на 38% (PMID: 26310198).
-                    </div>
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-700/40">
+                      Этап 1
+                    </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-white">2. Энтерол (S. boulardii CNCM I-745)</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/40">
-                        ЛС (ГРЛС)
-                      </span>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    При холестазе не формируются мицеллы, жирорастворимые кофакторы теряются, а бактериальный LPS вызывает микроглиальное нейровоспаление.
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>1. Хофитол (Экстракт артишока)</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300">ЛС (ГРЛС)</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> 2–3 таб. 3 р/сут перед едой (2–3 недели).</div>
+                      <div className="text-slate-300"><b>Личный опыт автора:</b> 2 таб. 3 р/сут строго за 20 мин до еды (20–30 дней).</div>
                     </div>
-                    <p className="text-[11px] text-slate-300">
-                      <b>Режим:</b> 250 мг 2 раза в сутки за 1 час до еды (14–30 дней).
-                    </p>
-                    <p className="text-[11px] text-cyan-300/90 italic">
-                      <b>Зачем в стеке:</b> Восстановление плотных контактов энтероцитов (tight junctions), синтез секреторного IgA, защита от ЛПС-эндотоксикоза.
-                    </p>
-                    <div className="text-[10px] text-amber-300 font-mono">
-                      Мета-анализ: Cochrane 21 РКИ — доказательность A (PMID: 31430489).
+
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>2. Полисорб МП (Диоксид кремния)</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300">ЛС (ГРЛС)</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> водная суспензия за 1–1.5 ч до/после еды.</div>
+                      <div className="text-emerald-300"><b>Личный опыт автора:</b> применяется в авторской концепции <b>минимум 3 недели</b>.</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>3. Энтерол (S. boulardii CNCM I-745)</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300">ЛС (ГРЛС)</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> 1–2 капс. 2 р/сут за 1 ч до еды.</div>
+                      <div className="text-slate-300"><b>Личный опыт автора:</b> 250 мг 2 р/сут за 1 час до еды (14–30 дней).</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-600/30 text-[11px] space-y-1">
+                      <div className="font-bold text-amber-300">⚠️ Альтернатива при камнях: Урсосан (УДХК)</div>
+                      <p className="text-slate-300 leading-relaxed">
+                        Предусмотрен автором как замена Хофитолу <b>только при наличии конкрементов в желчном пузыре</b>.
+                        <b>Не является универсальной рекомендацией для пациентов</b> (только по УЗИ ОБП и с врачом).
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-1">
+                {/* STAGE 2: НЕЙРОБУСТ И ОСНОВНЫЕ КОМПОНЕНТЫ (6+ МЕС) */}
+                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-sky-600/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🧠</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">2-й месяц — «Подключение Нейробуста»</h4>
+                        <span className="text-[9px] text-sky-400 font-semibold">База длительного действия (6+ месяцев)</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-sky-950 text-sky-300 font-bold border border-sky-700/40">
+                      Этап 2
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-sky-950/30 border border-sky-600/40 text-[11px] text-sky-200">
+                    💡 <b>КРИТИЧЕСКИ ВАЖНО:</b> Цитруллин, Креатин и Глиатилин — компоненты длительного применения (<b>минимум 6 месяцев</b>, от 6 до 12 месяцев).
+                    Второй месяц обозначает точку их подключения, а не завершение приёма!
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>1. Глиатилин (Холина альфосцерат)</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300">6+ месяцев</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> 400 мг 2–3 р/сут до еды.</div>
+                      <div className="text-slate-300"><b>Личный опыт:</b> 400 мг 2 р/сут за 30 мин до еды. Насыщение пула ацетилхолина.</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>2. Креатин моногидрат</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300">6+ месяцев</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> 3–5 г в сутки с водой.</div>
+                      <div className="text-slate-300"><b>Личный опыт:</b> 5 г каждое утро натощак. Энергетический буфер АТФ мозга.</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-bold text-white">
+                        <span>3. L-Цитруллин</span>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300">6+ месяцев</span>
+                      </div>
+                      <div className="text-slate-400"><b>По инструкции:</b> 3–6 г в сутки.</div>
+                      <div className="text-slate-300"><b>Личный опыт:</b> 3–5 г утром натощак. Синтез NO и венозный отток малого таза.</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* STAGE 3: ДВУХМЕСЯЧНЫЙ ЭТАП С ФЕНОТРОПИЛОМ (3-Й И 4-Й МЕСЯЦЫ) */}
+                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-purple-600/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">⚡</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">3-й и 4-й месяцы — «Этап с Фенотропилом»</h4>
+                        <span className="text-[9px] text-purple-400 font-semibold">Двухмесячный курс рацетама</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-purple-950 text-purple-300 font-bold border border-purple-700/40">
+                      Этап 3
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Продолжительность этапа — <b>ровно два месяца</b> (3-й месяц — начало, 4-й месяц — продолжение).
+                    Для 4-го месяца не создается отдельный курс. Фенотропил принимается СТРОГО на фоне продолжающегося приема компонентов 2-го месяца (Глиатилин, Креатин, Цитруллин)!
+                  </p>
+
+                  <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between font-bold text-white">
+                      <span>Фенотропил (Фонтурацетам)</span>
+                      <span className="text-[8px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300">2 месяца</span>
+                    </div>
+                    <div className="text-slate-400"><b>По инструкции:</b> 100–250 мг 1–2 р/сут утром после еды (курс 1–2 месяца). До 15:00.</div>
+                    <div className="text-slate-300"><b>Личный опыт автора:</b> 100 мг утром натощак курсом ровно 2 месяца.</div>
+                  </div>
+                </div>
+
+                {/* TIMELINE SCHEME */}
+                <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-[11px]">
+                  <div className="flex items-center gap-1.5 font-bold text-white text-xs">
+                    <span>🔄</span>
+                    <span>Таймлайн-схема авторской программы</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 text-center pt-1 font-mono text-[10px]">
+                    <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-700/40 text-emerald-300">
+                      <div className="font-bold">1-й месяц</div>
+                      <div className="text-[8px] text-slate-300 mt-0.5">Хофитол + Полисорб + Энтерол</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-sky-950/60 border border-sky-700/40 text-sky-300">
+                      <div className="font-bold">2-й месяц</div>
+                      <div className="text-[8px] text-slate-300 mt-0.5">Старт Нейробуст (Глиатилин, Креатин...)</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-purple-950/60 border border-purple-700/40 text-purple-300">
+                      <div className="font-bold">3-й месяц</div>
+                      <div className="text-[8px] text-slate-300 mt-0.5">Фенотропил (мес 1) + Стек 2-го мес</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-indigo-950/60 border border-indigo-700/40 text-indigo-300">
+                      <div className="font-bold">4-й месяц</div>
+                      <div className="text-[8px] text-slate-300 mt-0.5">Фенотропил (мес 2) + Стек 2-го мес</div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-cyan-300 text-center pt-1">
+                    ⚡ Далее (5+ мес): Глиатилин, Креатин и Цитруллин продолжаются до 6–12 месяцев.
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      triggerHaptic('medium');
+                      setActiveTab('auxiliary');
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-1.5 transition"
+                  >
+                    <span>📦 Вспомогательные БАДы</span>
+                  </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('medium');
                       setActiveTab('workout');
                     }}
-                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center gap-1.5 transition"
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center gap-1.5 transition"
                   >
-                    <span>Шаг 2: Перейти к тренировкам (снятие застоев)</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span>🏋️‍♂️ Тренировки (Шаг 2)</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -491,148 +659,237 @@ export const TelegramMiniApp: React.FC = () => {
               </div>
             )}
 
-            {/* 3. MEDICATIONS TAB */}
-            {activeTab === 'meds' && (
-              <div className="space-y-3">
+            {/* 2. AUXILIARY MEDICATIONS & SUPPLEMENTS TAB */}
+            {activeTab === 'auxiliary' && (
+              <div className="space-y-3.5">
+                {/* Auxiliary Header */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-600/30 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📦</span>
+                    <div>
+                      <h3 className="text-xs font-bold text-white">Вспомогательные препараты и БАДы</h3>
+                      <p className="text-[10px] text-indigo-400">Каталог дополнительных средств (не входят в базовый курс)</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Эти средства не назначаются автоматически всем подряд, а рассматриваются индивидуально под конкретные задачи
+                    (дефициты, мягкий выход после курса Фенотропила, гепатопротекция, адаптация к стрессу).
+                  </p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={auxSearch}
+                    onChange={(e) => setAuxSearch(e.target.value)}
+                    placeholder="Поиск по названию, действию или назначению..."
+                    className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  />
+                  {auxSearch && (
+                    <button
+                      onClick={() => setAuxSearch('')}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Filter Chips */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[10px] font-semibold scrollbar-none">
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('all');
+                      setAuxCategory('all');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'all' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    Все ({medications.length})
+                    Все ({auxiliaryMeds.length})
                   </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('1');
+                      setAuxCategory('nootropics');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === '1' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'nootropics' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    1-й мес (ЖКТ)
+                    🧠 Ноотропы (Ноопепт...)
                   </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('2');
+                      setAuxCategory('minerals');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === '2' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'minerals' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    2-й мес (Нейро)
+                    ⚡ Микроэлементы & Витамины
                   </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('3');
+                      setAuxCategory('adaptogens');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === '3' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'adaptogens' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    3-й мес (Микро)
+                    🌿 Адаптогены & Травы
                   </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('4');
+                      setAuxCategory('gastro_extra');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === '4' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'gastro_extra' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    Поддержка
+                    🫄 ЖКТ (Ребагит, Креон, Омез)
                   </button>
+
                   <button
                     onClick={() => {
                       triggerHaptic('light');
-                      setMedFilter('medicine');
+                      setAuxCategory('antioxidants');
                     }}
-                    className={`px-2 py-1 rounded-lg whitespace-nowrap ${
-                      medFilter === 'medicine' ? 'bg-purple-600 text-white' : 'bg-slate-900 text-slate-400'
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition ${
+                      auxCategory === 'antioxidants' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400'
                     }`}
                   >
-                    ЛС (ГРЛС)
+                    🛡️ Антиоксиданты & Защита
                   </button>
                 </div>
 
-                {/* 3rd Month Neuroboost continuation banner */}
-                {medFilter === '3' && (
-                  <div className="p-3 rounded-xl bg-indigo-950/50 border border-indigo-700/50 text-[11px] text-slate-200 space-y-1">
-                    <div className="font-bold text-indigo-300">💡 3-й месяц: Продолжение нейробуста + Микронутриенты</div>
-                    <p>• <b>Фенотропил:</b> продолжается 2-й месяц приема (курс длится строго 2 месяца).</p>
-                    <p>• <b>Глиатилин, Креатин и L-Цитруллин:</b> базовый постоянный пул — минимум от 6 месяцев до 1 года!</p>
-                  </div>
-                )}
-
-                {/* Med List */}
+                {/* List of Auxiliary Medications with 7 required points */}
                 <div className="space-y-2">
-                  {filteredMeds.map((m) => (
-                    <div
-                      key={m.id}
-                      onClick={() => {
-                        triggerHaptic('light');
-                        setSelectedMed(selectedMed?.id === m.id ? null : m);
-                      }}
-                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer space-y-1"
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs text-white line-clamp-1">{m.name}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {m.legal_category_rf && (
-                            <span
-                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
-                                m.legal_category_rf === 'medicine'
-                                  ? 'bg-purple-950 text-purple-300 border border-purple-700/40'
-                                  : m.legal_category_rf === 'vitamin_mineral'
-                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/40'
-                                  : 'bg-amber-950 text-amber-300 border border-amber-700/40'
-                              }`}
-                            >
-                              {m.legal_category_rf === 'medicine' ? 'ЛС' : m.legal_category_rf === 'vitamin_mineral' ? 'Вит/Мин' : 'БАД'}
+                  {filteredAuxMeds.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl">
+                      По вашему запросу ничего не найдено.
+                    </div>
+                  ) : (
+                    filteredAuxMeds.map((m) => (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setSelectedMed(selectedMed?.id === m.id ? null : m);
+                        }}
+                        className={`p-3 rounded-xl border transition cursor-pointer space-y-1.5 ${
+                          selectedMed?.id === m.id
+                            ? 'bg-slate-900 border-cyan-500/70 shadow-lg shadow-cyan-950/30'
+                            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-xs text-white line-clamp-1">{m.name}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {m.legal_category_rf && (
+                              <span
+                                className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                                  m.legal_category_rf === 'medicine'
+                                    ? 'bg-purple-950 text-purple-300 border border-purple-700/40'
+                                    : m.legal_category_rf === 'vitamin_mineral'
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/40'
+                                    : 'bg-amber-950 text-amber-300 border border-amber-700/40'
+                                }`}
+                              >
+                                {m.legal_category_rf === 'medicine' ? 'ЛС' : m.legal_category_rf === 'vitamin_mineral' ? 'Вит/Мин' : 'БАД'}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400">
+                              {selectedMed?.id === m.id ? '▲' : '▼'}
                             </span>
-                          )}
-                          {m.month_phase && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold">
-                              {m.month_phase === 4 ? 'Поддержка' : `Фаза ${m.month_phase}`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-[10px] text-slate-400 line-clamp-1">
-                        {m.active_ingredient || m.notes}
-                      </div>
-
-                      {/* Expanded View */}
-                      {selectedMed?.id === m.id && (
-                        <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-300 space-y-1 mt-2">
-                          <div><b>Режим:</b> {m.dose || '—'} ({m.schedule || '—'})</div>
-                          {m.duration_course && <div><b>Курс:</b> {m.duration_course}</div>}
-                          {m.why_in_stack && (
-                            <div className="text-cyan-300 italic">
-                              <b>Зачем в стеке:</b> {m.why_in_stack}
-                            </div>
-                          )}
-                          {m.meta_analysis_summary && (
-                            <div className="text-amber-300">
-                              <b>Мета-анализ:</b> {m.meta_analysis_summary}
-                            </div>
-                          )}
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            PMID/DOI: {m.meta_analysis_refs?.join(', ') || m.evidence_refs?.join(', ') || '—'}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        <div className="text-[11px] text-slate-400 line-clamp-1">
+                          {m.purpose || m.why_in_stack || m.notes}
+                        </div>
+
+                        {/* FULL 7-SUBPOINT VIEW WHEN EXPANDED */}
+                        {selectedMed?.id === m.id && (
+                          <div className="pt-2.5 border-t border-slate-800 text-[11px] space-y-2 mt-2">
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-cyan-400 font-bold text-[10px] uppercase tracking-wider">
+                                1. Название препарата
+                              </div>
+                              <div className="text-white font-medium">{m.name} ({m.active_ingredient || '—'})</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-cyan-400 font-bold text-[10px] uppercase tracking-wider">
+                                2. Для чего используется
+                              </div>
+                              <div className="text-slate-200">{m.purpose || m.why_in_stack || m.notes || '—'}</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-cyan-400 font-bold text-[10px] uppercase tracking-wider">
+                                3. Когда рассматривается применение
+                              </div>
+                              <div className="text-slate-200">{m.when_considered || 'По индивидуальным показаниям'}</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-cyan-400 font-bold text-[10px] uppercase tracking-wider">
+                                4. Как принимать по инструкции
+                              </div>
+                              <div className="text-slate-200">{m.instruction_usage || m.schedule || 'По инструкции производителя'}</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+                                5. Личный опыт автора
+                              </div>
+                              <div className="text-slate-200">{m.personal_experience || m.clarification_note || 'Применяется вне базовой триады курса'}</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-amber-950/20 border border-amber-600/30 space-y-1">
+                              <div className="text-amber-300 font-bold text-[10px] uppercase tracking-wider">
+                                6. Предостережения и противопоказания
+                              </div>
+                              <div className="text-slate-300">{m.precautions || 'Требуется консультация специалиста'}</div>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                              <div className="text-indigo-400 font-bold text-[10px] uppercase tracking-wider">
+                                7. Место относительно основного курса
+                              </div>
+                              <div className="text-slate-300">{m.relation_to_main_course || 'Вспомогательное средство. Не входит в базовый курс'}</div>
+                            </div>
+
+                            {m.meta_analysis_summary && (
+                              <div className="text-[10px] text-amber-300/90 pt-1">
+                                <b>Мета-анализ:</b> {m.meta_analysis_summary}
+                              </div>
+                            )}
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSendAssistant(`Расскажи о совместимости вспомогательного средства ${m.name} с основным авторским курсом (Хофитол, Глиатилин, Креатин, Фенотропил)`);
+                                setActiveTab('assistant');
+                              }}
+                              className="w-full mt-1 py-1.5 rounded-lg text-[10px] font-bold bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 border border-sky-500/30 flex items-center justify-center gap-1 transition"
+                            >
+                              <span>🤖 Спросить AI-ассистента о совместимости</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
